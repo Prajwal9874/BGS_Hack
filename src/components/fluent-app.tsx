@@ -1,51 +1,2065 @@
-'use client';
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { ArrowUpRight, ArrowRight, BookOpen, Bot, Check, CheckCircle2, ChevronRight, Flame, Globe2, GraduationCap, Heart, Home, Languages, Link2, Loader2, LogOut, MessageCircle, MoreHorizontal, RefreshCw, Search, Send, Settings2, ShieldCheck, Sparkles, Target, Timer, Users, X, Zap, Bookmark, ExternalLink, AlertTriangle, CalendarDays } from 'lucide-react';
-import { languages, language, resources, examSources, type Language, type Partner } from '@/lib/data';
-import { compatible, dayAt, inCooldown, reliability, type Profile } from '@/lib/domain';
-import { levelsFor, questions } from '@/lib/questions';
-import { useFluent } from '@/lib/use-fluent';
-import ExchangeSession from './exchange-session';
-type Controller=ReturnType<typeof useFluent>;
-type View='Overview'|'My loop'|'Find a partner'|'Language tutors'|'Practice lab'|'Resource library';
-const navigation=[{label:'Overview' as View,icon:Home},{label:'My loop' as View,icon:Link2},{label:'Find a partner' as View,icon:Users},{label:'Language tutors' as View,icon:Bot},{label:'Practice lab' as View,icon:GraduationCap},{label:'Resource library' as View,icon:BookOpen}];
-function Pill({children,tone='neutral'}:{children:ReactNode;tone?:string}){return <span className={`pill ${tone}`}>{children}</span>;}
-function LangMark({id,size='normal'}:{id:string;size?:string}){const l=language(id);return <span className={`lang-mark ${size}`} style={{color:l.color,background:`${l.color}15`}}>{l.code}</span>;}
-function Dialog({title,onClose,children}:{title:string;onClose:()=>void;children:ReactNode}){const ref=useRef<HTMLDivElement>(null);useEffect(()=>{const previous=document.activeElement as HTMLElement;const node=ref.current;node?.querySelector<HTMLElement>('button,input,select,textarea')?.focus();function key(e:KeyboardEvent){if(e.key==='Escape')onClose();if(e.key==='Tab'&&node){const els=Array.from(node.querySelectorAll<HTMLElement>('button:not(:disabled),input,select,textarea,[tabindex="0"]'));const first=els[0],last=els.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}}}document.addEventListener('keydown',key);const overflow=document.body.style.overflow;document.body.style.overflow='hidden';return()=>{document.removeEventListener('keydown',key);document.body.style.overflow=overflow;previous?.focus();};},[onClose]);return <div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}><div className="modal" role="dialog" aria-modal="true" aria-label={title} ref={ref}><div className="section-heading"><h2>{title}</h2><button className="icon-btn" onClick={onClose} aria-label="Close dialog"><X size={20}/></button></div>{children}</div></div>;}
-export default function FluentApp(){const c=useFluent();const [view,setView]=useState<View>('Overview'),[modal,setModal]=useState<'profile'|'account'|'checkin'|null>(null);const s=c.state;if(!c.ready)return <div className="boot"><span className="brand">fluent<span>.ly</span></span><Loader2 className="spin"/><p>Finding your words…</p></div>;
- return <div className="app-shell"><a className="skip-link" href="#main">Skip to content</a><aside className="sidebar"><button className="brand" onClick={()=>setView('Overview')} aria-label="fluent.ly home">fluent<span>.ly</span><span className="brand-dot"/></button><div className="workspace-label">YOUR LEARNING SPACE</div><nav aria-label="Main navigation">{navigation.map(n=><button key={n.label} className={`nav-item ${view===n.label?'active':''}`} onClick={()=>setView(n.label)} aria-current={view===n.label?'page':undefined}><n.icon size={19}/><span>{n.label}</span>{n.label==='Language tutors'&&<span className="nav-new">AI</span>}</button>)}</nav><div className="sidebar-bottom"><div className="sidebar-note"><div className="flex items-center gap-2"><Sparkles size={17}/><strong>Better, together.</strong></div><p>Your language is someone’s next adventure.</p><button onClick={()=>setView('Find a partner')}>Find your people <ArrowUpRight size={15}/></button></div><button className="account-item" onClick={()=>setModal('profile')}><span className="avatar small">{s.profile.name.slice(0,1)}</span><span><strong>{s.profile.name||'Your profile'}</strong><small>{c.mode==='demo'?'Demo learner':'Live learner'}</small></span><Settings2 size={17}/></button></div></aside>
- <div className="main-shell"><header className="topbar"><div className="breadcrumb">Your workspace <ChevronRight size={14}/><strong>{view}</strong></div><div className="top-actions"><Pill tone={c.mode==='demo'?'purple':'green'}><span className="status-dot"/>{c.mode==='demo'?'Demo mode':'Live account'}</Pill><button className="icon-btn" aria-label="Account and connection settings" onClick={()=>setModal('account')}><Settings2 size={19}/></button><button className="avatar small" onClick={()=>setModal('profile')} aria-label="Edit learner profile">{s.profile.name.slice(0,1)}</button></div></header>
- <main id="main" className="main-content"><div className="mode-strip"><span><span className="status-dot"/>{c.mode==='demo'?'A working demo. Sample people, local progress, and labeled tutor fallbacks.':c.syncStatus}</span><button onClick={()=>setModal('account')}>{c.mode==='demo'?'Connect your account':'Account settings'}<ArrowUpRight size={13}/></button></div>
- {view==='Overview'&&<Overview c={c} navigate={setView} profile={()=>setModal('profile')} check={()=>setModal('checkin')}/>}
- {view==='Find a partner'&&<Discover c={c} profile={()=>setModal('profile')}/>}
- {view==='My loop'&&<Loop c={c} navigate={setView} check={()=>setModal('checkin')}/>}
- {view==='Language tutors'&&<Tutors c={c}/>}
- {view==='Practice lab'&&<Practice c={c}/>}
- {view==='Resource library'&&<Library c={c}/>}
- <footer><span>fluent.ly <span className="muted">· A little practice. A real connection.</span></span><span>{c.mode==='demo'?'Saved in this browser':c.syncStatus}</span></footer></main></div>
- {c.notice&&<div className="toast" role="status"><Sparkles size={18}/><span>{c.notice}</span><button className="icon-btn" aria-label="Dismiss notification" onClick={()=>c.setNotice('')}><X size={16}/></button></div>}
- {modal==='profile'&&<Dialog title={s.onboarded?'Your learning profile':'Your next language starts here.'} onClose={()=>setModal(null)}><ProfileForm c={c} done={()=>{setModal(null);setView('Find a partner');}}/></Dialog>}
- {modal==='account'&&<Dialog title="Your account & demo controls" onClose={()=>setModal(null)}><Account c={c}/></Dialog>}
- {modal==='checkin'&&<Dialog title="Show up. Keep your loop alive." onClose={()=>setModal(null)}><Checkin c={c} done={()=>setModal(null)}/></Dialog>}
- </div>;
+"use client";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
+import {
+  ArrowUpRight,
+  ArrowRight,
+  BookOpen,
+  Bot,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  Flame,
+  Globe2,
+  GraduationCap,
+  Heart,
+  Home,
+  Languages,
+  Link2,
+  Loader2,
+  LogOut,
+  MessageCircle,
+  MoreHorizontal,
+  RefreshCw,
+  Search,
+  Send,
+  Settings2,
+  ShieldCheck,
+  Sparkles,
+  Target,
+  Timer,
+  Users,
+  X,
+  Zap,
+  Bookmark,
+  ExternalLink,
+  AlertTriangle,
+  CalendarDays,
+} from "lucide-react";
+import {
+  languages,
+  language,
+  resources,
+  examSources,
+  type Language,
+  type Partner,
+} from "@/lib/data";
+import {
+  compatible,
+  dayAt,
+  inCooldown,
+  reliability,
+  type Profile,
+} from "@/lib/domain";
+import { levelsFor, questions } from "@/lib/questions";
+import { useFluent } from "@/lib/use-fluent";
+import ExchangeSession from "./exchange-session";
+type Controller = ReturnType<typeof useFluent>;
+type View =
+  | "Overview"
+  | "My loop"
+  | "Find a partner"
+  | "Language tutors"
+  | "Practice lab"
+  | "Resource library";
+const navigation = [
+  { label: "Overview" as View, icon: Home },
+  { label: "My loop" as View, icon: Link2 },
+  { label: "Find a partner" as View, icon: Users },
+  { label: "Language tutors" as View, icon: Bot },
+  { label: "Practice lab" as View, icon: GraduationCap },
+  { label: "Resource library" as View, icon: BookOpen },
+];
+function Pill({
+  children,
+  tone = "neutral",
+}: {
+  children: ReactNode;
+  tone?: string;
+}) {
+  return <span className={`pill ${tone}`}>{children}</span>;
 }
-function PageTitle({eyebrow,title,description,action}:{eyebrow:string;title:string;description:string;action?:ReactNode}){return <div className="page-title"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p>{description}</p></div>{action}</div>;}
-function Overview({c,navigate,profile,check}:{c:Controller;navigate:(v:View)=>void;profile:()=>void;check:()=>void}){const s=c.state,l=language(s.profile.target),score=reliability(s.completed,s.misses),checked=s.lastCheckin===dayAt(s.demoOffset),cool=inCooldown(s);return <><PageTitle eyebrow="SMALL STEPS. BIG CONVERSATIONS." title={`Hey ${s.profile.name}, keep the loop going.`} description="A new language feels closer when you’re learning with someone." action={<button className="btn secondary" onClick={profile}><Languages size={16}/>My languages</button>}/><section className="hero-card"><div className="hero-copy"><Pill tone="purple"><Sparkles size={13}/> YOUR NEXT CHAPTER</Pill><h2>Find your people.<br/>Find your <em>words.</em></h2><p>You bring {s.profile.known[0]}. They bring {s.profile.target}.<br/>Build fluency, one real conversation at a time.</p><button className="btn primary" onClick={()=>s.onboarded?navigate('Find a partner'):profile()}>{s.onboarded?'Explore your matches':'Start your learning loop'}<ArrowRight size={17}/></button><div className="hero-caption"><span className="mini-avatars"><i>A</i><i>K</i><i>Y</i></span><span>Different languages. Shared commitment.</span></div></div><div className="language-orbit" aria-hidden="true"><div className="orbit ring-one"/><div className="orbit ring-two"/><div className="orbit-core"><Languages size={42}/><span>let’s talk</span></div><div className="orbit-word word-kn">ಕನ್ನಡ<span>Kannada</span></div><div className="orbit-word word-hi">नमस्ते<span>Hindi</span></div><div className="orbit-word word-jp">こんにちは<span>Japanese</span></div><div className="orbit-word word-fr">Bonjour<span>French</span></div><span className="orbit-star star-one">✦</span><span className="orbit-star star-two">✦</span></div></section>
- <div className="stats-grid"><article className="stat-card"><span className="stat-icon amber"><Flame size={21}/></span><div><span className="stat-label">Current streak</span><strong>{s.streak}<small>days</small></strong><span className="stat-caption">{s.streak?'Keep your momentum':'Your first day starts today'}</span></div><div className="spark-bars" aria-hidden="true">{[20,30,24,40,34,48,55].map((h,i)=><i key={i} style={{height:s.streak?`${h}px`:'8px'}}/>)}</div></article><article className="stat-card"><span className="stat-icon mint"><ShieldCheck size={21}/></span><div><span className="stat-label">Reliability</span><strong>{score}<small>%</small></strong><span className="stat-caption">{s.completed+s.misses?`${s.completed} check-ins · ${s.misses} missed days`:'A fresh start'}</span></div><div className="mini-ring" style={{background:`conic-gradient(#92ddc6 ${score*3.6}deg,#272834 0deg)`}}><Check size={20}/></div></article><article className="stat-card"><span className="stat-icon purple"><Timer size={21}/></span><div><span className="stat-label">Daily commitment</span><strong>{s.profile.goal}<small>min</small></strong><span className="stat-caption">A habit that fits your day</span></div><Target className="stat-bg" size={45}/></article></div>
- <div className="overview-grid"><section className="panel today-panel"><div className="section-heading"><h2>Your daily loop</h2><Pill tone={checked?'green':'purple'}>{checked?'Done for today':`${s.profile.goal} min / day`}</Pill></div><div className="daily-item"><span className="task-circle"><MessageCircle size={20}/></span><div><h3>{s.partner?`Trade a few words with ${s.partner.name.split(' ')[0]}`:'Meet your language partner'}</h3><p>{s.partner?`${s.profile.target} ↔ ${s.partner.target} · ${s.profile.slot} practice`:'Find someone who wants to learn what you know.'}</p></div><button className="icon-btn" aria-label="Open partner exchange" onClick={()=>navigate(s.partner?'My loop':'Find a partner')}><ArrowUpRight size={20}/></button></div><div className="daily-item"><span className="task-circle"><Bot size={20}/></span><div><h3>A little {s.profile.target}, a little confidence</h3><p>Warm up with your personal language coach.</p></div><button className="icon-btn" aria-label="Open your tutor" onClick={()=>navigate('Language tutors')}><ArrowUpRight size={20}/></button></div><div className="daily-item"><span className="task-circle"><GraduationCap size={20}/></span><div><h3>Put your new words to the test</h3><p>Grammar, vocabulary, and explanations that stick.</p></div><button className="icon-btn" aria-label="Open practice lab" onClick={()=>navigate('Practice lab')}><ArrowUpRight size={20}/></button></div><button className={`btn full ${checked?'secondary':'primary'}`} onClick={check} disabled={!s.onboarded||checked||cool||c.busy}><CheckCircle2 size={17}/>{checked?'Practice logged for today':cool?'Check-in paused during cooldown':'Log today’s practice'}</button>{!s.onboarded&&<button className="text-button" onClick={profile}>Create your profile to start tracking</button>}</section>
- <section className="panel partner-preview"><div className="section-heading"><h2>{s.partner?'Your exchange partner':'Your people are out there'}</h2><Users size={19}/></div>{s.partner?<><div className="partner-head"><span className="avatar large">{s.partner.name.slice(0,1)}</span><div><h3>{s.partner.name}</h3><p>{s.partner.demo?'Sample partner':'Community learner'} · {s.partner.slot}</p></div><Pill tone="green"><Link2 size={12}/> Paired</Pill></div><div className="exchange-row"><div><span>THEY TEACH YOU</span><strong>{l.native}</strong><small>{l.id}</small></div><span className="exchange-icon"><RefreshCw size={20}/></span><div><span>YOU TEACH THEM</span><strong>{language(s.partner.target).native}</strong><small>{s.partner.target}</small></div></div><p className="partner-bio">“{s.partner.bio}”</p><button className="btn secondary full" onClick={()=>navigate('My loop')}>Open your exchange<MessageCircle size={16}/></button></>:<div className="empty compact"><Users size={36}/><h3>One connection can change everything.</h3><p>Your best match knows {s.profile.target} and wants to learn one of your languages.</p><button className="btn secondary" onClick={()=>s.onboarded?navigate('Find a partner'):profile()}>Find a reciprocal match<ArrowRight size={16}/></button></div>}</section></div>
- <div className="section-heading section-space"><div><h2>A world of ways to learn</h2><p className="muted text-sm">Rooted here. Connected everywhere.</p></div><button className="text-button" onClick={()=>navigate('Language tutors')}>Meet your tutors<ArrowRight size={15}/></button></div><div className="language-tiles">{(['Kannada','Hindi','Japanese','German','French'] as Language[]).map(id=><button key={id} className="language-tile" onClick={()=>navigate('Language tutors')}><LangMark id={id}/><strong>{id}</strong><span>{language(id).native}</span><ArrowUpRight size={17}/></button>)}</div>
- {c.mode==='demo'&&<div className="demo-prompt"><Zap size={17}/><span>Presenting to judges? Load a sample journey to explore a streak, partner, and reliability history.</span><button className="text-button" onClick={()=>c.resetDemo(true)}>Load sample<ArrowRight size={15}/></button></div>}</>;}
-function PartnerCard({p,c}:{p:ReturnType<typeof compatible>[number];c:Controller}){const s=c.state;return <article className="panel match-card"><div className="section-heading"><span className="avatar">{p.name.slice(0,1)}</span><Pill tone="green">{p.fit}% reliability fit</Pill></div><h3>{p.name}</h3><p className="muted text-sm">{p.demo?'Sample learner':'Community learner'} · {p.slot} · {p.level}</p><div className="match-languages"><div><small>CAN HELP WITH</small><span><LangMark id={s.profile.target} size="tiny"/>{s.profile.target}</span></div><RefreshCw size={17}/><div><small>WANTS TO LEARN</small><span><LangMark id={p.target} size="tiny"/>{p.target}</span></div></div><p className="match-bio">{p.bio}</p><div className="tags">{p.interests.map(i=><span key={i}>{i}</span>)}</div><div className="match-stats"><span><ShieldCheck size={14}/>{reliability(p.completed,p.misses)}% reliable</span><span><Flame size={14}/>{p.streak} day streak</span></div><button className="btn secondary full" disabled={c.busy||inCooldown(s)||!!s.partner||!s.onboarded} onClick={()=>c.connect(p)}>{s.partner?'Release current partner to pair':'Start a learning loop'}<ArrowRight size={16}/></button></article>;}
-function Discover({c,profile}:{c:Controller;profile:()=>void}){const [search,setSearch]=useState(''),[slot,setSlot]=useState('Any time');const s=c.state;const matches=compatible(s.profile,c.partners,s.completed,s.misses,Date.now()+s.demoOffset*86400000).filter(p=>(slot==='Any time'||p.slot===slot)&&`${p.name} ${p.bio}`.toLowerCase().includes(search.toLowerCase()));return <><PageTitle eyebrow="YOUR LANGUAGE IS THEIR NEXT CHAPTER" title="Find your kind of learner." description="A real exchange goes both ways. These people can teach what you want to learn." action={<button className="btn secondary" onClick={profile}><Settings2 size={16}/>Edit preferences</button>}/><div className="connection-banner"><Languages size={24}/><div><strong>I speak {s.profile.known.join(' & ')}. I’m learning {s.profile.target}.</strong><p>Ranked by reliability fit and shared availability. Each match also wants one of your languages.</p></div><Pill tone="purple">Reciprocal matches</Pill></div>{inCooldown(s)&&<div className="warning"><AlertTriangle size={20}/><span>Matching is paused until {new Date(s.cooldownUntil!).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})} IST. Tutors and resources remain available.</span></div>}<div className="filter-row"><label className="search-box"><Search size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search people or interests" aria-label="Search matches"/></label><label className="select-label">Availability<select value={slot} onChange={e=>setSlot(e.target.value)}><option>Any time</option><option>Morning</option><option>Afternoon</option><option>Evening</option></select></label><span className="muted text-sm">{matches.length} reciprocal {matches.length===1?'match':'matches'}</span></div>{matches.length?<div className="match-grid">{matches.map(p=><PartnerCard key={p.id} p={p} c={c}/>)}</div>:<div className="panel empty"><Users size={38}/><h3>No reciprocal matches yet.</h3><p>{c.mode==='live'?'Invite another learner to sign in with complementary languages, or try other availability.':'Try another availability or target language. The demo uses a small sample directory.'}</p><button className="btn secondary" onClick={profile}>Edit my languages</button></div>}</>;}
-function Loop({c,navigate,check}:{c:Controller;navigate:(v:View)=>void;check:()=>void}){const s=c.state,[text,setText]=useState(''),[release,setRelease]=useState(false);async function submit(e:FormEvent){e.preventDefault();if(text.trim()){const value=text.trim();setText('');await c.sendPeer(value);}}return <><PageTitle eyebrow="A SHARED COMMITMENT" title="Two languages. One loop." description="Practice a little, help each other, and show up again tomorrow."/>{s.partner?<><ExchangeSession key={s.partner.id} learn={s.profile.target} teach={s.partner.target} goal={s.profile.goal} onComplete={check}/><div className="loop-grid"><section className="panel chat-panel"><div className="chat-heading"><span className="avatar small">{s.partner.name.slice(0,1)}</span><div><h3>{s.partner.name}</h3><p>{s.partner.demo?'Simulated exchange · no real person is messaged':`${s.profile.target} ↔ ${s.partner.target} · live exchange`}</p></div><Link2 size={20}/></div><div className="chat-messages" aria-live="polite"><div className="chat-intro"><MessageCircle size={26}/><h3>Break the ice.</h3><p>Say hello, introduce yourself, and agree on a practice time. Spend half your session on each language.</p></div>{s.peerMessages.map(m=><div key={m.id} className={`bubble ${m.role}`}><small>{m.role==='user'?'You':m.source==='demo'?'Simulated partner':s.partner?.name}</small><p>{m.content}</p></div>)}</div><form className="chat-compose" onSubmit={submit}><input aria-label="Message your partner" placeholder="Start a conversation…" value={text} maxLength={1500} onChange={e=>setText(e.target.value)}/><button className="btn primary" disabled={c.busy||!text.trim()} aria-label="Send partner message"><Send size={17}/></button></form></section><div className="stack"><section className="panel"><div className="section-heading"><h2>Your practice pact</h2><Heart size={19}/></div><div className="pact"><span><Timer size={17}/>{s.profile.goal} minutes daily</span><span><CalendarDays size={17}/>{s.profile.slot} · IST</span><span><RefreshCw size={17}/>Equal time for both languages</span></div><button className="btn primary full" onClick={check} disabled={c.busy||inCooldown(s)||s.lastCheckin===dayAt(s.demoOffset)}><CheckCircle2 size={16}/>Log today’s practice</button><button className="text-button danger-text" onClick={()=>setRelease(true)}>Release this partnership</button></section><Accountability c={c}/></div></div></>:<div className="panel empty"><Link2 size={40}/><h3>Your next conversation is waiting.</h3><p>{inCooldown(s)?'Your partnership was released after repeated missed commitments. Return after the cooldown to rematch.':'Pair with a reciprocal learner to open your exchange.'}</p><button className="btn primary" onClick={()=>navigate('Find a partner')}>Find a partner<ArrowRight size={17}/></button></div>}<section className="panel section-space"><div className="section-heading"><h2>Your journey so far</h2><Pill>{s.activities.length} recent events</Pill></div>{s.activities.length?<div className="activity-list">{s.activities.map(a=><div key={a.id}><span className={`activity-dot ${a.type}`}/><p>{a.text}</p><time>{a.day}</time></div>)}</div>:<p className="muted">Your check-ins and partnership milestones will appear here.</p>}</section>{!s.partner&&<Accountability c={c}/>} {release&&<Dialog title="Release this partnership?" onClose={()=>setRelease(false)}><p className="muted">Both learners will be free to find another reciprocal match. Your learning progress stays with you.</p><button className="btn primary full mt-5" disabled={c.busy} onClick={async()=>{await c.release();setRelease(false);}}>Release partnership</button></Dialog>}</>;}
-function Accountability({c}:{c:Controller}){const s=c.state;return <section className="panel"><div className="section-heading"><h2>Consistency, with care.</h2><ShieldCheck size={19}/></div><div className="reliability-value">{reliability(s.completed,s.misses)}<span>% reliability</span></div><div className="progress-track"><div style={{width:`${reliability(s.completed,s.misses)}%`}}/></div><p className="muted text-sm">Completed days ÷ (completed + missed days). New learners start at 100%.</p><ol className="rules"><li><span>01</span><div><strong>A gentle warning</strong><p>First missed day resets your streak.</p></div></li><li><span>02</span><div><strong>Time to reset</strong><p>Second miss pauses matching and check-ins for 24 hours.</p></div></li><li><span>03</span><div><strong>A better-fit fresh start</strong><p>Third and later misses release your loop. Rematch after cooldown.</p></div></li></ol><p className="text-sm muted">Tutors, practice, and resources always stay open. Daily boundaries use IST.</p>{c.mode==='demo'&&<div className="demo-controls"><Pill tone="purple">Presenter controls</Pill><p>Virtual demo date: {dayAt(s.demoOffset)}</p><div className="flex flex-wrap gap-2"><button className="btn secondary small-btn" onClick={c.miss}>Simulate missed day</button><button className="btn secondary small-btn" onClick={c.advance}>Advance 24 hours</button></div><p className="text-xs muted">Simulation changes demo progress only. Live misses are calculated on account refresh.</p></div>}</section>;}
-function Tutors({c}:{c:Controller}){const [id,setId]=useState<Language>(c.state.profile.target),[text,setText]=useState(''),[pending,setPending]=useState(false),[source,setSource]=useState('Scripted practice when Gemini is unavailable'),[clear,setClear]=useState(false);const l=language(id),history=c.state.histories[id]??[];const end=useRef<HTMLDivElement>(null);useEffect(()=>{end.current?.scrollIntoView({block:'nearest'});},[history.length,pending]);async function send(value:string){if(pending||!value.trim())return;setPending(true);setText('');try{setSource(await c.tutor(id,value.trim()));}catch(e){c.setNotice(e instanceof Error?e.message:'Tutor unavailable. Try again.');}finally{setPending(false);}}return <><PageTitle eyebrow="A SAFE SPACE TO MAKE MISTAKES" title="Your words. Your pace. Your coach." description="A dedicated learning space for each language. Every conversation has its own history."/><div className="tutor-layout"><aside className="panel tutor-directory"><div className="section-heading"><h2>Your tutors</h2><Sparkles size={17}/></div>{['Regional','Global'].map(group=><div key={group}><div className="workspace-label">{group==='Regional'?'CLOSER TO HOME':'AROUND THE WORLD'}</div>{languages.filter(l=>l.group===group).map(l=><button className={`tutor-choice ${id===l.id?'selected':''}`} key={l.id} disabled={pending} onClick={()=>{setId(l.id);setSource('Separate language history · Gemini or scripted fallback');}}><LangMark id={l.id} size="tiny"/><span><strong>{l.id}</strong><small>{l.native}</small></span>{id===l.id&&<span className="status-dot"/>}</button>)}</div>)}</aside><section className="panel chat-panel tutor-chat"><div className="chat-heading"><LangMark id={id}/><div><h3>{id} coach</h3><p>{l.native} · Focused on language learning</p></div><button className="icon-btn" aria-label="Clear this tutor history" disabled={pending||!history.length} onClick={()=>setClear(true)}><RefreshCw size={17}/></button></div><div className="chat-messages" aria-live="polite">{history.length===0?<div className="tutor-welcome"><span className="tutor-spark"><Sparkles size={29}/></span><span className="native-greeting" style={{color:l.color}}>{l.greeting}</span><h2>A little {id} goes a long way.</h2><p>Learn a phrase, untangle some grammar, or practice for an exam. We’ll take it one conversation at a time.</p><div className="prompt-grid">{[['Greetings','Teach me everyday greetings.'],['Grammar','Explain basic sentence grammar.'],['A quick challenge','Quiz me on a greeting.']].map(([title,prompt])=><button key={title} onClick={()=>send(prompt)} disabled={pending}><span>{title}</span><ArrowUpRight size={16}/></button>)}</div></div>:history.map(m=><div className={`bubble ${m.role}`} key={m.id}><small>{m.role==='user'?'You':m.source==='gemini'?`${id} · Gemini`:`${id} · Scripted practice`}</small><p>{m.content}</p></div>)}{pending&&<div className="bubble assistant"><Loader2 className="spin" size={18}/> Your coach is thinking…</div>}<div ref={end}/></div><form className="chat-compose" onSubmit={e=>{e.preventDefault();send(text);}}><input aria-label={`Message the ${id} tutor`} value={text} onChange={e=>setText(e.target.value)} maxLength={1500} placeholder={`Ask about ${id} grammar, vocabulary, or practice…`}/><button className="btn primary" aria-label="Send tutor message" disabled={pending||!text.trim()}>{pending?<Loader2 className="spin" size={17}/>:<Send size={17}/>}</button></form><p className="chat-disclaimer">{source}. AI answers can make mistakes; verify exam guidance with official sources.</p></section></div>{clear&&<Dialog title={`Clear ${id} history?`} onClose={()=>setClear(false)}><p className="muted">This clears only this tutor’s conversation.</p><button className="btn primary full mt-5" onClick={async()=>{try{await c.updateNotes({...c.state,histories:{...c.state.histories,[id]:[]}});setClear(false);}catch{}}}>Clear conversation</button></Dialog>}</>;}
-function Practice({c}:{c:Controller}){const available=languages.filter(l=>levelsFor(l.id).length);const [id,setId]=useState<Language>(levelsFor(c.state.profile.target).length?c.state.profile.target:'Japanese'),[level,setLevel]=useState(levelsFor(id)[0]),[skill,setSkill]=useState('All skills'),[index,setIndex]=useState(0),[choice,setChoice]=useState<number|null>(null),[answers,setAnswers]=useState<{id:string;choice:number}[]>([]),[checked,setChecked]=useState(false),[finished,setFinished]=useState(false),[saving,setSaving]=useState(false);const bank=questions.filter(q=>q.language===id&&q.level===level&&(skill==='All skills'||q.skill===skill)),q=bank[index],source=examSources[id];const score=answers.filter(a=>questions.find(q=>q.id===a.id)?.answer===a.choice).length;
- function reset(){setIndex(0);setChoice(null);setAnswers([]);setChecked(false);setFinished(false);}
- async function next(){if(index+1<bank.length){setIndex(i=>i+1);setChoice(null);setChecked(false);}else{setSaving(true);try{await c.updateNotes({...c.state,results:[{language:id,level,score:answers.filter(a=>questions.find(q=>q.id===a.id)?.answer===a.choice).length,total:bank.length,day:dayAt(c.state.demoOffset)},...c.state.results].slice(0,50)});setFinished(true);}catch{c.setNotice('Could not save your practice result. Try again.');}finally{setSaving(false);}}}
- return <><PageTitle eyebrow="MAKE WHAT YOU LEARN STICK" title="A little challenge. A lot of progress." description="Level-based grammar and vocabulary, with explanations after every answer."/><div className="filter-row practice-filters"><label className="select-label">Language<select value={id} onChange={e=>{const id=e.target.value as Language;setId(id);setLevel(levelsFor(id)[0]);reset();}}>{available.map(l=><option key={l.id}>{l.id}</option>)}</select></label><label className="select-label">Level<select value={level} onChange={e=>{setLevel(e.target.value);reset();}}>{levelsFor(id).map(l=><option key={l}>{l}</option>)}</select></label><label className="select-label">Focus<select value={skill} onChange={e=>{setSkill(e.target.value);reset();}}><option>All skills</option><option>Grammar</option><option>Vocabulary</option></select></label><Pill tone="purple">Original practice · {bank.length} questions</Pill></div><div className="practice-grid"><section className="panel quiz-card">{finished?<div className="quiz-result"><span className="tutor-spark"><GraduationCap size={30}/></span><Pill tone="purple">SESSION COMPLETE</Pill><h2>{score} / {bank.length}</h2><h3>{score===bank.length?'Your practice paid off.':'Every mistake is a new word learned.'}</h3><p className="muted">{id} · {level} · Saved to your learning history</p><div className="answer-review">{answers.map(a=>{const item=questions.find(q=>q.id===a.id)!;return <div key={a.id}><strong>{a.choice===item.answer?'✓':'↗'} {item.prompt}</strong><p>{item.explanation}</p></div>;})}</div><button className="btn primary" onClick={reset}>Practice again<RefreshCw size={16}/></button></div>:q?<><div className="section-heading"><Pill tone="purple">{id} · {level}</Pill><span className="muted text-sm">Question {index+1} of {bank.length}</span></div><div className="progress-track"><div style={{width:`${index/bank.length*100}%`}}/></div><div className="eyebrow">{q.skill.toUpperCase()}</div><h2 className="question-text">{q.prompt}</h2><div className="quiz-options">{q.options.map((o,i)=><button className={`quiz-option ${choice===i?'chosen':''} ${checked&&i===q.answer?'correct':''} ${checked&&choice===i&&i!==q.answer?'wrong':''}`} key={o} onClick={()=>setChoice(i)} disabled={checked}><span>{String.fromCharCode(65+i)}</span><strong>{o}</strong>{checked&&i===q.answer&&<CheckCircle2 size={19}/>}</button>)}</div>{checked&&<div className={`answer-explanation ${choice===q.answer?'right':'incorrect'}`} role="status"><strong>{choice===q.answer?'Exactly right.':'A good chance to learn.'}</strong><p>{q.explanation}</p></div>}<button className="btn primary" disabled={choice===null||saving} onClick={()=>{if(!checked){setAnswers([...answers,{id:q.id,choice:choice!}]);setChecked(true);}else next();}}>{saving?'Saving…':checked?index+1===bank.length?'See my results':'Next question':'Check answer'}<ArrowRight size={17}/></button></>:<div className="empty"><h3>No questions in this filter.</h3><p>Try another skill or level.</p></div>}</section><div className="stack"><section className="panel source-card"><div className="section-heading"><h2>Know your materials</h2><ShieldCheck size={18}/></div><Pill tone="amber">Starter question bank</Pill><p>These are original educational questions, organized by level. They are not previous-year papers, a full exam, or a certification assessment.</p>{source?<><h3>Explore official materials</h3><p>{source.note}</p><a className="btn secondary full" href={source.url} target="_blank" rel="noopener noreferrer">{source.name}<ExternalLink size={15}/></a><small>Official samples and released papers remain on the publisher’s site. Availability varies.</small></>:<p>Regional-language levels are informal learning stages, not exam certifications.</p>}</section><section className="panel"><h2>Recent practice</h2>{c.state.results.length?<div className="results-list">{c.state.results.slice(0,5).map((r,i)=><div key={`${r.day}-${i}`}><LangMark id={r.language} size="tiny"/><span><strong>{r.language} · {r.level}</strong><small>{r.day}</small></span><Pill>{r.score}/{r.total}</Pill></div>)}</div>:<p className="muted text-sm mt-4">Finish a practice session to see your results here.</p>}</section></div></div></>;}
-function Library({c}:{c:Controller}){const [id,setId]=useState('All languages'),[skill,setSkill]=useState('All skills'),[search,setSearch]=useState(''),[saved,setSaved]=useState(false);const list=resources.filter(r=>(id==='All languages'||r.language===id)&&(skill==='All skills'||r.skill===skill)&&(!saved||c.state.bookmarks.includes(r.id))&&`${r.title} ${r.description} ${r.language}`.toLowerCase().includes(search.toLowerCase()));async function bookmark(id:string){try{await c.updateNotes({...c.state,bookmarks:c.state.bookmarks.includes(id)?c.state.bookmarks.filter(b=>b!==id):[...c.state.bookmarks,id]});}catch{}}return <><PageTitle eyebrow="GOOD RESOURCES. ZERO GATEKEEPING." title="Your next rabbit hole starts here." description="A handpicked starting point for regional languages and global adventures."/><div className="filter-row"><label className="search-box"><Search size={18}/><input aria-label="Search resources" placeholder="Search guides, audio, grammar…" value={search} onChange={e=>setSearch(e.target.value)}/></label><label className="select-label">Language<select value={id} onChange={e=>setId(e.target.value)}><option>All languages</option>{languages.map(l=><option key={l.id}>{l.id}</option>)}</select></label><label className="select-label">Skill<select value={skill} onChange={e=>setSkill(e.target.value)}><option>All skills</option><option>Grammar</option><option>Vocabulary</option><option>Listening</option></select></label><button className={`btn secondary ${saved?'selected':''}`} aria-pressed={saved} onClick={()=>setSaved(!saved)}><Bookmark size={16}/>Saved</button></div><div className="resource-grid">{list.map(r=><article className="panel resource-card" key={r.id}><div className="section-heading"><LangMark id={r.language}/><button className={`icon-btn ${c.state.bookmarks.includes(r.id)?'saved':''}`} aria-label={`${c.state.bookmarks.includes(r.id)?'Unsave':'Save'} ${r.title}`} aria-pressed={c.state.bookmarks.includes(r.id)} onClick={()=>bookmark(r.id)}><Bookmark size={18}/></button></div><div className="resource-meta"><span>{r.language}</span><span>·</span><span>{r.skill}</span></div><h3>{r.title}</h3><p>{r.description}</p><div className="resource-bottom"><div><Pill tone={r.access==='Free'?'green':'amber'}>{r.access}</Pill><span className="text-xs muted">{r.level}</span></div><a href={r.url} target="_blank" rel="noopener noreferrer" className="resource-link" aria-label={`Open ${r.title}`}>Explore<ArrowUpRight size={17}/></a></div></article>)}</div>{!list.length&&<div className="panel empty"><BookOpen size={35}/><h3>No resources match yet.</h3><p>Try another filter or save a resource to build your collection.</p></div>}<p className="library-note">Free tiers can have limits. Resource access and availability may change; check the publisher’s current terms.</p></>;}
-function ProfileForm({c,done}:{c:Controller;done:()=>void}){const [p,setP]=useState<Profile>(c.state.profile),[error,setError]=useState('');function toggle(id:Language){setP(s=>{const known=s.known.includes(id)?s.known.filter(l=>l!==id):[...s.known,id];const target=known.includes(s.target)?languages.find(l=>!known.includes(l.id))?.id??s.target:s.target;return {...s,known,target};});}async function submit(e:FormEvent){e.preventDefault();if(!p.name.trim()||!p.known.length||p.known.includes(p.target)){setError('Add your name, choose at least one known language, and select a different target language.');return;}if(await c.saveProfile({...p,name:p.name.trim()}))done();}return <form onSubmit={submit} className="profile-form"><p className="muted">Tell us what you can share and what you’d love to learn. All times use IST.</p><label>Your name<input value={p.name} maxLength={60} onChange={e=>setP({...p,name:e.target.value})} required/></label><fieldset><legend>I can help someone with</legend><div className="language-chips">{languages.map(l=><button type="button" className={`language-chip ${p.known.includes(l.id)?'selected':''}`} key={l.id} onClick={()=>toggle(l.id)} aria-pressed={p.known.includes(l.id)}>{p.known.includes(l.id)&&<Check size={13}/>} {l.id}</button>)}</div></fieldset><div className="form-grid"><label>I want to learn<select value={p.target} onChange={e=>setP({...p,target:e.target.value as Language})}>{languages.filter(l=>!p.known.includes(l.id)).map(l=><option key={l.id}>{l.id}</option>)}</select></label><label>My current level<select value={p.level} onChange={e=>setP({...p,level:e.target.value})}><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select></label><label>Best time to practice<select value={p.slot} onChange={e=>setP({...p,slot:e.target.value})}><option>Morning</option><option>Afternoon</option><option>Evening</option></select></label><label>Daily commitment<select value={p.goal} onChange={e=>setP({...p,goal:Number(e.target.value)})}>{[10,15,20,30].map(n=><option key={n} value={n}>{n} minutes</option>)}</select></label></div><label>A little about you<textarea value={p.bio} maxLength={300} onChange={e=>setP({...p,bio:e.target.value})} rows={2}/></label><p className="text-xs muted">Your live profile is visible to signed-in learners for matching. Changing languages releases an existing partnership.</p>{error&&<p className="error-text" role="alert">{error}</p>}<button className="btn primary full" disabled={c.busy}>{c.busy?'Saving…':'Find my people'}<ArrowRight size={17}/></button>{!c.state.onboarded&&c.mode==='demo'&&<button className="text-button centered" type="button" onClick={()=>{c.resetDemo(true);done();}}>Or explore a sample journey</button>}</form>;}
-function Account({c}:{c:Controller}){const [email,setEmail]=useState(''),[reset,setReset]=useState(false);return <div className="account-settings"><div className="connection-banner"><Globe2 size={21}/><div><strong>{c.configured?'Supabase is configured':'No credentials needed for the demo'}</strong><p>{c.configured?'Sign in for real profiles and live exchanges.':'Add Supabase settings to .env.local to enable live accounts.'}</p></div></div>{c.session?<><p className="muted">Signed in as {c.session.user.email}</p><div className="flex flex-wrap gap-2"><button className="btn primary" onClick={c.switchLive}>Open live account</button><button className="btn secondary" onClick={c.signOut}><LogOut size={16}/>Sign out</button><button className="btn secondary" onClick={c.refresh}>Refresh cloud state</button></div></>:<form onSubmit={e=>{e.preventDefault();c.signIn(email);}}><label>Email address<input type="email" value={email} required placeholder="you@example.com" onChange={e=>setEmail(e.target.value)}/></label><button className="btn primary full" disabled={!c.configured||c.busy}>Send sign-in link<ArrowRight size={16}/></button></form>}<div className="divider"/><h3>Presenter controls</h3><p className="muted text-sm">Demo and live progress are separate. Loading a sample does not change cloud data.</p><div className="flex flex-wrap gap-2"><button className="btn secondary" onClick={()=>c.resetDemo(true)}>Load sample journey</button><button className="btn secondary" onClick={()=>setReset(true)}>Reset local demo</button></div>{reset&&<div className="warning"><span>This removes the local demo’s progress and tutor histories.</span><button className="text-button" onClick={()=>{c.resetDemo();setReset(false);}}>Confirm reset</button></div>}<p className="text-xs muted mt-5">Gemini runs on the server when configured. Offline responses are scripted and labeled in each conversation.</p></div>;}
-function Checkin({c,done}:{c:Controller;done:()=>void}){const [confirm,setConfirm]=useState(false);return <div className="checkin-content"><span className="tutor-spark"><Flame size={30}/></span><h3>{c.state.profile.goal} minutes. One small promise.</h3><p className="muted">A partner conversation, a tutor session, or focused study all count. This MVP uses an honest self-reported check-in.</p><label className="checkbox-row"><input type="checkbox" checked={confirm} onChange={e=>setConfirm(e.target.checked)}/><span>I completed at least {c.state.profile.goal} minutes of language practice today.</span></label><button className="btn primary full" disabled={!confirm||c.busy||inCooldown(c.state)||c.state.lastCheckin===dayAt(c.state.demoOffset)} onClick={async()=>{if(await c.checkin())done();}}>Log practice<CheckCircle2 size={17}/></button></div>;}
+function LangMark({ id, size = "normal" }: { id: string; size?: string }) {
+  const l = language(id);
+  return (
+    <span
+      className={`lang-mark ${size}`}
+      style={{ color: l.color, background: `${l.color}15` }}
+    >
+      {l.code}
+    </span>
+  );
+}
+function Dialog({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement;
+    const node = ref.current;
+    node?.querySelector<HTMLElement>("button,input,select,textarea")?.focus();
+    function key(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+      if (e.key === "Tab" && node) {
+        const els = Array.from(
+          node.querySelectorAll<HTMLElement>(
+            'button:not(:disabled),input,select,textarea,[tabindex="0"]',
+          ),
+        );
+        const first = els[0],
+          last = els.at(-1);
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last?.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first?.focus();
+        }
+      }
+    }
+    document.addEventListener("keydown", key);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", key);
+      document.body.style.overflow = overflow;
+      previous?.focus();
+    };
+  }, [onClose]);
+  return (
+    <div
+      className="modal-backdrop"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        ref={ref}
+      >
+        <div className="section-heading">
+          <h2>{title}</h2>
+          <button
+            className="icon-btn"
+            onClick={onClose}
+            aria-label="Close dialog"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+export default function FluentApp() {
+  const c = useFluent();
+  const [view, setView] = useState<View>("Overview"),
+    [modal, setModal] = useState<"profile" | "account" | "checkin" | null>(
+      null,
+    );
+  const [tutorLanguage, setTutorLanguage] = useState<Language | null>(null);
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [view]);
+  const s = c.state;
+  if (!c.ready)
+    return (
+      <div className="boot">
+        <span className="brand">
+          fluent<span>.ly</span>
+        </span>
+        <Loader2 className="spin" />
+        <p>Finding your words…</p>
+      </div>
+    );
+  return (
+    <div className="app-shell">
+      <a className="skip-link" href="#main">
+        Skip to content
+      </a>
+      <aside className="sidebar">
+        <button
+          className="brand"
+          onClick={() => setView("Overview")}
+          aria-label="fluent.ly home"
+        >
+          fluent<span>.ly</span>
+          <span className="brand-dot" />
+        </button>
+        <div className="workspace-label">YOUR LEARNING SPACE</div>
+        <nav aria-label="Main navigation">
+          {navigation.map((n) => (
+            <button
+              key={n.label}
+              className={`nav-item ${view === n.label ? "active" : ""}`}
+              onClick={() => setView(n.label)}
+              aria-current={view === n.label ? "page" : undefined}
+            >
+              <n.icon size={19} />
+              <span>{n.label}</span>
+              {n.label === "Language tutors" && (
+                <span className="nav-new">AI</span>
+              )}
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-bottom">
+          <div className="sidebar-note">
+            <div className="flex items-center gap-2">
+              <Sparkles size={17} />
+              <strong>Better, together.</strong>
+            </div>
+            <p>Your language is someone’s next adventure.</p>
+            <button onClick={() => setView("Find a partner")}>
+              Find your people <ArrowUpRight size={15} />
+            </button>
+          </div>
+          <button className="account-item" onClick={() => setModal("profile")}>
+            <span className="avatar small">{s.profile.name.slice(0, 1)}</span>
+            <span>
+              <strong>{s.profile.name || "Your profile"}</strong>
+              <small>
+                {c.mode === "demo" ? "Demo learner" : "Live learner"}
+              </small>
+            </span>
+            <Settings2 size={17} />
+          </button>
+        </div>
+      </aside>
+      <div className="main-shell">
+        <header className="topbar">
+          <div className="breadcrumb">
+            Your workspace <ChevronRight size={14} />
+            <strong>{view}</strong>
+          </div>
+          <div className="top-actions">
+            <Pill tone={c.mode === "demo" ? "purple" : "green"}>
+              <span className="status-dot" />
+              {c.mode === "demo" ? "Demo mode" : "Live account"}
+            </Pill>
+            <button
+              className="icon-btn"
+              aria-label="Account and connection settings"
+              onClick={() => setModal("account")}
+            >
+              <Settings2 size={19} />
+            </button>
+            <button
+              className="avatar small"
+              onClick={() => setModal("profile")}
+              aria-label="Edit learner profile"
+            >
+              {s.profile.name.slice(0, 1)}
+            </button>
+          </div>
+        </header>
+        <main id="main" className="main-content">
+          <div className="mode-strip">
+            <span>
+              <span className="status-dot" />
+              {c.mode === "demo"
+                ? "A working demo. Sample people, local progress, and labeled tutor fallbacks."
+                : c.syncStatus}
+            </span>
+            <button onClick={() => setModal("account")}>
+              {c.mode === "demo" ? "Connect your account" : "Account settings"}
+              <ArrowUpRight size={13} />
+            </button>
+          </div>
+          {view === "Overview" && (
+            <Overview
+              c={c}
+              navigate={setView}
+              openTutor={(id) => {
+                setTutorLanguage(id);
+                setView("Language tutors");
+              }}
+              profile={() => setModal("profile")}
+              check={() => setModal("checkin")}
+            />
+          )}
+          {view === "Find a partner" && (
+            <Discover c={c} profile={() => setModal("profile")} />
+          )}
+          {view === "My loop" && (
+            <Loop c={c} navigate={setView} check={() => setModal("checkin")} />
+          )}
+          {view === "Language tutors" && (
+            <Tutors c={c} initialLanguage={tutorLanguage ?? s.profile.target} />
+          )}
+          {view === "Practice lab" && <Practice c={c} />}
+          {view === "Resource library" && <Library c={c} />}
+          <footer>
+            <span>
+              fluent.ly{" "}
+              <span className="muted">
+                · A little practice. A real connection.
+              </span>
+            </span>
+            <span>
+              {c.mode === "demo" ? "Saved in this browser" : c.syncStatus}
+            </span>
+          </footer>
+        </main>
+      </div>
+      {c.notice && (
+        <div className="toast" role="status">
+          <Sparkles size={18} />
+          <span>{c.notice}</span>
+          <button
+            className="icon-btn"
+            aria-label="Dismiss notification"
+            onClick={() => c.setNotice("")}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+      {modal === "profile" && (
+        <Dialog
+          title={
+            s.onboarded
+              ? "Your learning profile"
+              : "Your next language starts here."
+          }
+          onClose={() => setModal(null)}
+        >
+          <ProfileForm
+            c={c}
+            done={() => {
+              setModal(null);
+              setView("Find a partner");
+            }}
+          />
+        </Dialog>
+      )}
+      {modal === "account" && (
+        <Dialog
+          title="Your account & demo controls"
+          onClose={() => setModal(null)}
+        >
+          <Account c={c} />
+        </Dialog>
+      )}
+      {modal === "checkin" && (
+        <Dialog
+          title="Show up. Keep your loop alive."
+          onClose={() => setModal(null)}
+        >
+          <Checkin c={c} done={() => setModal(null)} />
+        </Dialog>
+      )}
+    </div>
+  );
+}
+function PageTitle({
+  eyebrow,
+  title,
+  description,
+  action,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="page-title">
+      <div>
+        <div className="eyebrow">{eyebrow}</div>
+        <h1>{title}</h1>
+        <p>{description}</p>
+      </div>
+      {action}
+    </div>
+  );
+}
+function Overview({
+  c,
+  navigate,
+  openTutor,
+  profile,
+  check,
+}: {
+  c: Controller;
+  navigate: (v: View) => void;
+  openTutor: (id: Language) => void;
+  profile: () => void;
+  check: () => void;
+}) {
+  const s = c.state,
+    l = language(s.profile.target),
+    score = reliability(s.completed, s.misses),
+    checked = s.lastCheckin === dayAt(s.demoOffset),
+    cool = inCooldown(s);
+  return (
+    <>
+      <PageTitle
+        eyebrow="SMALL STEPS. BIG CONVERSATIONS."
+        title={`Hey ${s.profile.name}, keep the loop going.`}
+        description="A new language feels closer when you’re learning with someone."
+        action={
+          <button className="btn secondary" onClick={profile}>
+            <Languages size={16} />
+            My languages
+          </button>
+        }
+      />
+      <section className="hero-card">
+        <div className="hero-copy">
+          <Pill tone="purple">
+            <Sparkles size={13} /> YOUR NEXT CHAPTER
+          </Pill>
+          <h2>
+            Find your people.
+            <br />
+            Find your <em>words.</em>
+          </h2>
+          <p>
+            You bring {s.profile.known[0]}. They bring {s.profile.target}.<br />
+            Build fluency, one real conversation at a time.
+          </p>
+          <button
+            className="btn primary"
+            onClick={() =>
+              s.onboarded ? navigate("Find a partner") : profile()
+            }
+          >
+            {s.onboarded ? "Explore your matches" : "Start your learning loop"}
+            <ArrowRight size={17} />
+          </button>
+          <div className="hero-caption">
+            <span className="mini-avatars">
+              <i>A</i>
+              <i>K</i>
+              <i>Y</i>
+            </span>
+            <span>Different languages. Shared commitment.</span>
+          </div>
+        </div>
+        <div className="language-orbit" aria-hidden="true">
+          <div className="orbit ring-one" />
+          <div className="orbit ring-two" />
+          <div className="orbit-core">
+            <Languages size={42} />
+            <span>let’s talk</span>
+          </div>
+          <div className="orbit-word word-kn">
+            ಕನ್ನಡ<span>Kannada</span>
+          </div>
+          <div className="orbit-word word-hi">
+            नमस्ते<span>Hindi</span>
+          </div>
+          <div className="orbit-word word-jp">
+            こんにちは<span>Japanese</span>
+          </div>
+          <div className="orbit-word word-fr">
+            Bonjour<span>French</span>
+          </div>
+          <span className="orbit-star star-one">✦</span>
+          <span className="orbit-star star-two">✦</span>
+        </div>
+      </section>
+      <div className="stats-grid">
+        <article className="stat-card">
+          <span className="stat-icon amber">
+            <Flame size={21} />
+          </span>
+          <div>
+            <span className="stat-label">Current streak</span>
+            <strong>
+              {s.streak}
+              <small>days</small>
+            </strong>
+            <span className="stat-caption">
+              {s.streak ? "Keep your momentum" : "Your first day starts today"}
+            </span>
+          </div>
+          <div className="spark-bars" aria-hidden="true">
+            {[20, 30, 24, 40, 34, 48, 55].map((h, i) => (
+              <i key={i} style={{ height: s.streak ? `${h}px` : "8px" }} />
+            ))}
+          </div>
+        </article>
+        <article className="stat-card">
+          <span className="stat-icon mint">
+            <ShieldCheck size={21} />
+          </span>
+          <div>
+            <span className="stat-label">Reliability</span>
+            <strong>
+              {score}
+              <small>%</small>
+            </strong>
+            <span className="stat-caption">
+              {s.completed + s.misses
+                ? `${s.completed} check-ins · ${s.misses} missed days`
+                : "A fresh start"}
+            </span>
+          </div>
+          <div
+            className="mini-ring"
+            style={{
+              background: `conic-gradient(#92ddc6 ${score * 3.6}deg,#272834 0deg)`,
+            }}
+          >
+            <Check size={20} />
+          </div>
+        </article>
+        <article className="stat-card">
+          <span className="stat-icon purple">
+            <Timer size={21} />
+          </span>
+          <div>
+            <span className="stat-label">Daily commitment</span>
+            <strong>
+              {s.profile.goal}
+              <small>min</small>
+            </strong>
+            <span className="stat-caption">A habit that fits your day</span>
+          </div>
+          <Target className="stat-bg" size={45} />
+        </article>
+      </div>
+      <div className="overview-grid">
+        <section className="panel today-panel">
+          <div className="section-heading">
+            <h2>Your daily loop</h2>
+            <Pill tone={checked ? "green" : "purple"}>
+              {checked ? "Done for today" : `${s.profile.goal} min / day`}
+            </Pill>
+          </div>
+          <div className="daily-item">
+            <span className="task-circle">
+              <MessageCircle size={20} />
+            </span>
+            <div>
+              <h3>
+                {s.partner
+                  ? `Trade a few words with ${s.partner.name.split(" ")[0]}`
+                  : "Meet your language partner"}
+              </h3>
+              <p>
+                {s.partner
+                  ? `${s.profile.target} ↔ ${s.partner.target} · ${s.profile.slot} practice`
+                  : "Find someone who wants to learn what you know."}
+              </p>
+            </div>
+            <button
+              className="icon-btn"
+              aria-label="Open partner exchange"
+              onClick={() => navigate(s.partner ? "My loop" : "Find a partner")}
+            >
+              <ArrowUpRight size={20} />
+            </button>
+          </div>
+          <div className="daily-item">
+            <span className="task-circle">
+              <Bot size={20} />
+            </span>
+            <div>
+              <h3>A little {s.profile.target}, a little confidence</h3>
+              <p>Warm up with your personal language coach.</p>
+            </div>
+            <button
+              className="icon-btn"
+              aria-label="Open your tutor"
+              onClick={() => openTutor(s.profile.target)}
+            >
+              <ArrowUpRight size={20} />
+            </button>
+          </div>
+          <div className="daily-item">
+            <span className="task-circle">
+              <GraduationCap size={20} />
+            </span>
+            <div>
+              <h3>Put your new words to the test</h3>
+              <p>Grammar, vocabulary, and explanations that stick.</p>
+            </div>
+            <button
+              className="icon-btn"
+              aria-label="Open practice lab"
+              onClick={() => navigate("Practice lab")}
+            >
+              <ArrowUpRight size={20} />
+            </button>
+          </div>
+          <button
+            className={`btn full ${checked ? "secondary" : "primary"}`}
+            onClick={check}
+            disabled={!s.onboarded || checked || cool || c.busy}
+          >
+            <CheckCircle2 size={17} />
+            {checked
+              ? "Practice logged for today"
+              : cool
+                ? "Check-in paused during cooldown"
+                : "Log today’s practice"}
+          </button>
+          {!s.onboarded && (
+            <button className="text-button" onClick={profile}>
+              Create your profile to start tracking
+            </button>
+          )}
+        </section>
+        <section className="panel partner-preview">
+          <div className="section-heading">
+            <h2>
+              {s.partner
+                ? "Your exchange partner"
+                : "Your people are out there"}
+            </h2>
+            <Users size={19} />
+          </div>
+          {s.partner ? (
+            <>
+              <div className="partner-head">
+                <span className="avatar large">
+                  {s.partner.name.slice(0, 1)}
+                </span>
+                <div>
+                  <h3>{s.partner.name}</h3>
+                  <p>
+                    {s.partner.demo ? "Sample partner" : "Community learner"} ·{" "}
+                    {s.partner.slot}
+                  </p>
+                </div>
+                <Pill tone="green">
+                  <Link2 size={12} /> Paired
+                </Pill>
+              </div>
+              <div className="exchange-row">
+                <div>
+                  <span>THEY TEACH YOU</span>
+                  <strong>{l.native}</strong>
+                  <small>{l.id}</small>
+                </div>
+                <span className="exchange-icon">
+                  <RefreshCw size={20} />
+                </span>
+                <div>
+                  <span>YOU TEACH THEM</span>
+                  <strong>{language(s.partner.target).native}</strong>
+                  <small>{s.partner.target}</small>
+                </div>
+              </div>
+              <p className="partner-bio">“{s.partner.bio}”</p>
+              <button
+                className="btn secondary full"
+                onClick={() => navigate("My loop")}
+              >
+                Open your exchange
+                <MessageCircle size={16} />
+              </button>
+            </>
+          ) : (
+            <div className="empty compact">
+              <Users size={36} />
+              <h3>One connection can change everything.</h3>
+              <p>
+                Your best match knows {s.profile.target} and wants to learn one
+                of your languages.
+              </p>
+              <button
+                className="btn secondary"
+                onClick={() =>
+                  s.onboarded ? navigate("Find a partner") : profile()
+                }
+              >
+                Find a reciprocal match
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          )}
+        </section>
+      </div>
+      <div className="section-heading section-space">
+        <div>
+          <h2>A world of ways to learn</h2>
+          <p className="muted text-sm">Rooted here. Connected everywhere.</p>
+        </div>
+        <button
+          className="text-button"
+          onClick={() => navigate("Language tutors")}
+        >
+          Meet your tutors
+          <ArrowRight size={15} />
+        </button>
+      </div>
+      <div className="language-tiles">
+        {(
+          ["Kannada", "Hindi", "Japanese", "German", "French"] as Language[]
+        ).map((id) => (
+          <button
+            key={id}
+            className="language-tile"
+            onClick={() => openTutor(id)}
+          >
+            <LangMark id={id} />
+            <strong>{id}</strong>
+            <span>{language(id).native}</span>
+            <ArrowUpRight size={17} />
+          </button>
+        ))}
+      </div>
+      {c.mode === "demo" && (
+        <div className="demo-prompt">
+          <Zap size={17} />
+          <span>
+            Presenting to judges? Load a sample journey to explore a streak,
+            partner, and reliability history.
+          </span>
+          <button className="text-button" onClick={() => c.resetDemo(true)}>
+            Load sample
+            <ArrowRight size={15} />
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+function PartnerCard({
+  p,
+  c,
+}: {
+  p: ReturnType<typeof compatible>[number];
+  c: Controller;
+}) {
+  const s = c.state;
+  return (
+    <article className="panel match-card">
+      <div className="section-heading">
+        <span className="avatar">{p.name.slice(0, 1)}</span>
+        <Pill tone="green">{p.fit}% reliability fit</Pill>
+      </div>
+      <h3>{p.name}</h3>
+      <p className="muted text-sm">
+        {p.demo ? "Sample learner" : "Community learner"} · {p.slot} · {p.level}
+      </p>
+      <div className="match-languages">
+        <div>
+          <small>CAN HELP WITH</small>
+          <span>
+            <LangMark id={s.profile.target} size="tiny" />
+            {s.profile.target}
+          </span>
+        </div>
+        <RefreshCw size={17} />
+        <div>
+          <small>WANTS TO LEARN</small>
+          <span>
+            <LangMark id={p.target} size="tiny" />
+            {p.target}
+          </span>
+        </div>
+      </div>
+      <p className="match-bio">{p.bio}</p>
+      <div className="tags">
+        {p.interests.map((i) => (
+          <span key={i}>{i}</span>
+        ))}
+      </div>
+      <div className="match-stats">
+        <span>
+          <ShieldCheck size={14} />
+          {reliability(p.completed, p.misses)}% reliable
+        </span>
+        <span>
+          <Flame size={14} />
+          {p.streak} day streak
+        </span>
+      </div>
+      <button
+        className="btn secondary full"
+        disabled={c.busy || inCooldown(s) || !!s.partner || !s.onboarded}
+        onClick={() => c.connect(p)}
+      >
+        {s.partner
+          ? "Release current partner to pair"
+          : "Start a learning loop"}
+        <ArrowRight size={16} />
+      </button>
+    </article>
+  );
+}
+function Discover({ c, profile }: { c: Controller; profile: () => void }) {
+  const [search, setSearch] = useState(""),
+    [slot, setSlot] = useState("Any time");
+  const s = c.state;
+  const matches = compatible(
+    s.profile,
+    c.partners,
+    s.completed,
+    s.misses,
+    Date.now() + s.demoOffset * 86400000,
+  ).filter(
+    (p) =>
+      (slot === "Any time" || p.slot === slot) &&
+      `${p.name} ${p.bio}`.toLowerCase().includes(search.toLowerCase()),
+  );
+  return (
+    <>
+      <PageTitle
+        eyebrow="YOUR LANGUAGE IS THEIR NEXT CHAPTER"
+        title="Find your kind of learner."
+        description="A real exchange goes both ways. These people can teach what you want to learn."
+        action={
+          <button className="btn secondary" onClick={profile}>
+            <Settings2 size={16} />
+            Edit preferences
+          </button>
+        }
+      />
+      <div className="connection-banner">
+        <Languages size={24} />
+        <div>
+          <strong>
+            I speak {s.profile.known.join(" & ")}. I’m learning{" "}
+            {s.profile.target}.
+          </strong>
+          <p>
+            Ranked by reliability fit and shared availability. Each match also
+            wants one of your languages.
+          </p>
+        </div>
+        <Pill tone="purple">Reciprocal matches</Pill>
+      </div>
+      {inCooldown(s) && (
+        <div className="warning">
+          <AlertTriangle size={20} />
+          <span>
+            Matching is paused until{" "}
+            {new Date(s.cooldownUntil!).toLocaleString("en-IN", {
+              timeZone: "Asia/Kolkata",
+            })}{" "}
+            IST. Tutors and resources remain available.
+          </span>
+        </div>
+      )}
+      <div className="filter-row">
+        <label className="search-box">
+          <Search size={18} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search people or interests"
+            aria-label="Search matches"
+          />
+        </label>
+        <label className="select-label">
+          Availability
+          <select value={slot} onChange={(e) => setSlot(e.target.value)}>
+            <option>Any time</option>
+            <option>Morning</option>
+            <option>Afternoon</option>
+            <option>Evening</option>
+          </select>
+        </label>
+        <span className="muted text-sm">
+          {matches.length} reciprocal{" "}
+          {matches.length === 1 ? "match" : "matches"}
+        </span>
+      </div>
+      {matches.length ? (
+        <div className="match-grid">
+          {matches.map((p) => (
+            <PartnerCard key={p.id} p={p} c={c} />
+          ))}
+        </div>
+      ) : (
+        <div className="panel empty">
+          <Users size={38} />
+          <h3>No reciprocal matches yet.</h3>
+          <p>
+            {c.mode === "live"
+              ? "Invite another learner to sign in with complementary languages, or try other availability."
+              : "Try another availability or target language. The demo uses a small sample directory."}
+          </p>
+          <button className="btn secondary" onClick={profile}>
+            Edit my languages
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+function Loop({
+  c,
+  navigate,
+  check,
+}: {
+  c: Controller;
+  navigate: (v: View) => void;
+  check: () => void;
+}) {
+  const s = c.state,
+    [text, setText] = useState(""),
+    [release, setRelease] = useState(false);
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (text.trim()) {
+      const value = text.trim();
+      setText("");
+      await c.sendPeer(value);
+    }
+  }
+  return (
+    <>
+      <PageTitle
+        eyebrow="A SHARED COMMITMENT"
+        title="Two languages. One loop."
+        description="Practice a little, help each other, and show up again tomorrow."
+      />
+      {s.partner ? (
+        <>
+          <ExchangeSession
+            key={s.partner.id}
+            learn={s.profile.target}
+            teach={s.partner.target}
+            goal={s.profile.goal}
+            onComplete={check}
+          />
+          <div className="loop-grid">
+            <section className="panel chat-panel">
+              <div className="chat-heading">
+                <span className="avatar small">
+                  {s.partner.name.slice(0, 1)}
+                </span>
+                <div>
+                  <h3>{s.partner.name}</h3>
+                  <p>
+                    {s.partner.demo
+                      ? "Simulated exchange · no real person is messaged"
+                      : `${s.profile.target} ↔ ${s.partner.target} · live exchange`}
+                  </p>
+                </div>
+                <Link2 size={20} />
+              </div>
+              <div className="chat-messages" aria-live="polite">
+                <div className="chat-intro">
+                  <MessageCircle size={26} />
+                  <h3>Break the ice.</h3>
+                  <p>
+                    Say hello, introduce yourself, and agree on a practice time.
+                    Spend half your session on each language.
+                  </p>
+                </div>
+                {s.peerMessages.map((m) => (
+                  <div key={m.id} className={`bubble ${m.role}`}>
+                    <small>
+                      {m.role === "user"
+                        ? "You"
+                        : m.source === "demo"
+                          ? "Simulated partner"
+                          : s.partner?.name}
+                    </small>
+                    <p>{m.content}</p>
+                  </div>
+                ))}
+              </div>
+              <form className="chat-compose" onSubmit={submit}>
+                <input
+                  aria-label="Message your partner"
+                  placeholder="Start a conversation…"
+                  value={text}
+                  maxLength={1500}
+                  onChange={(e) => setText(e.target.value)}
+                />
+                <button
+                  className="btn primary"
+                  disabled={c.busy || !text.trim()}
+                  aria-label="Send partner message"
+                >
+                  <Send size={17} />
+                </button>
+              </form>
+            </section>
+            <div className="stack">
+              <section className="panel">
+                <div className="section-heading">
+                  <h2>Your practice pact</h2>
+                  <Heart size={19} />
+                </div>
+                <div className="pact">
+                  <span>
+                    <Timer size={17} />
+                    {s.profile.goal} minutes daily
+                  </span>
+                  <span>
+                    <CalendarDays size={17} />
+                    {s.profile.slot} · IST
+                  </span>
+                  <span>
+                    <RefreshCw size={17} />
+                    Equal time for both languages
+                  </span>
+                </div>
+                <button
+                  className="btn primary full"
+                  onClick={check}
+                  disabled={
+                    c.busy ||
+                    inCooldown(s) ||
+                    s.lastCheckin === dayAt(s.demoOffset)
+                  }
+                >
+                  <CheckCircle2 size={16} />
+                  Log today’s practice
+                </button>
+                <button
+                  className="text-button danger-text"
+                  onClick={() => setRelease(true)}
+                >
+                  Release this partnership
+                </button>
+              </section>
+              <Accountability c={c} />
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="panel empty">
+          <Link2 size={40} />
+          <h3>Your next conversation is waiting.</h3>
+          <p>
+            {inCooldown(s)
+              ? "Your partnership was released after repeated missed commitments. Return after the cooldown to rematch."
+              : "Pair with a reciprocal learner to open your exchange."}
+          </p>
+          <button
+            className="btn primary"
+            onClick={() => navigate("Find a partner")}
+          >
+            Find a partner
+            <ArrowRight size={17} />
+          </button>
+        </div>
+      )}
+      <section className="panel section-space">
+        <div className="section-heading">
+          <h2>Your journey so far</h2>
+          <Pill>{s.activities.length} recent events</Pill>
+        </div>
+        {s.activities.length ? (
+          <div className="activity-list">
+            {s.activities.map((a) => (
+              <div key={a.id}>
+                <span className={`activity-dot ${a.type}`} />
+                <p>{a.text}</p>
+                <time>{a.day}</time>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="muted">
+            Your check-ins and partnership milestones will appear here.
+          </p>
+        )}
+      </section>
+      {!s.partner && <Accountability c={c} />}{" "}
+      {release && (
+        <Dialog
+          title="Release this partnership?"
+          onClose={() => setRelease(false)}
+        >
+          <p className="muted">
+            Both learners will be free to find another reciprocal match. Your
+            learning progress stays with you.
+          </p>
+          <button
+            className="btn primary full mt-5"
+            disabled={c.busy}
+            onClick={async () => {
+              await c.release();
+              setRelease(false);
+            }}
+          >
+            Release partnership
+          </button>
+        </Dialog>
+      )}
+    </>
+  );
+}
+function Accountability({ c }: { c: Controller }) {
+  const s = c.state;
+  return (
+    <section className="panel">
+      <div className="section-heading">
+        <h2>Consistency, with care.</h2>
+        <ShieldCheck size={19} />
+      </div>
+      <div className="reliability-value">
+        {reliability(s.completed, s.misses)}
+        <span>% reliability</span>
+      </div>
+      <div className="progress-track">
+        <div style={{ width: `${reliability(s.completed, s.misses)}%` }} />
+      </div>
+      <p className="muted text-sm">
+        Completed days ÷ (completed + missed days). New learners start at 100%.
+      </p>
+      <ol className="rules">
+        <li>
+          <span>01</span>
+          <div>
+            <strong>A gentle warning</strong>
+            <p>First missed day resets your streak.</p>
+          </div>
+        </li>
+        <li>
+          <span>02</span>
+          <div>
+            <strong>Time to reset</strong>
+            <p>Second miss pauses matching and check-ins for 24 hours.</p>
+          </div>
+        </li>
+        <li>
+          <span>03</span>
+          <div>
+            <strong>A better-fit fresh start</strong>
+            <p>
+              Third and later misses release your loop. Rematch after cooldown.
+            </p>
+          </div>
+        </li>
+      </ol>
+      <p className="text-sm muted">
+        Tutors, practice, and resources always stay open. Paused days don’t
+        count as new misses. Daily boundaries use IST.
+      </p>
+      {c.mode === "demo" && (
+        <div className="demo-controls">
+          <Pill tone="purple">Presenter controls</Pill>
+          <p>Virtual demo date: {dayAt(s.demoOffset)}</p>
+          <div className="flex flex-wrap gap-2">
+            <button className="btn secondary small-btn" onClick={c.miss}>
+              Simulate missed day
+            </button>
+            <button className="btn secondary small-btn" onClick={c.advance}>
+              Advance 24 hours
+            </button>
+          </div>
+          <p className="text-xs muted">
+            Simulation changes demo progress only. Advancing the clock skips
+            missed-day evaluation for the walkthrough. Live misses are
+            calculated on account refresh.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+function Tutors({
+  c,
+  initialLanguage,
+}: {
+  c: Controller;
+  initialLanguage: Language;
+}) {
+  const [id, setId] = useState<Language>(initialLanguage),
+    [text, setText] = useState(""),
+    [pending, setPending] = useState(false),
+    [source, setSource] = useState(
+      "Scripted practice when Gemini is unavailable",
+    ),
+    [clear, setClear] = useState(false);
+  const l = language(id),
+    history = c.state.histories[id] ?? [];
+  const end = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: "nearest" });
+  }, [history.length, pending]);
+  async function send(value: string) {
+    if (pending || !value.trim()) return;
+    setPending(true);
+    setText("");
+    try {
+      setSource(await c.tutor(id, value.trim()));
+    } catch (e) {
+      c.setNotice(
+        e instanceof Error ? e.message : "Tutor unavailable. Try again.",
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+  return (
+    <>
+      <PageTitle
+        eyebrow="A SAFE SPACE TO MAKE MISTAKES"
+        title="Your words. Your pace. Your coach."
+        description="A dedicated learning space for each language. Every conversation has its own history."
+      />
+      <div className="tutor-layout">
+        <aside className="panel tutor-directory">
+          <div className="section-heading">
+            <h2>Your tutors</h2>
+            <Sparkles size={17} />
+          </div>
+          {["Regional", "Global"].map((group) => (
+            <div key={group}>
+              <div className="workspace-label">
+                {group === "Regional" ? "CLOSER TO HOME" : "AROUND THE WORLD"}
+              </div>
+              {languages
+                .filter((l) => l.group === group)
+                .map((l) => (
+                  <button
+                    className={`tutor-choice ${id === l.id ? "selected" : ""}`}
+                    key={l.id}
+                    disabled={pending}
+                    onClick={() => {
+                      setId(l.id);
+                      setSource(
+                        "Separate language history · Gemini or scripted fallback",
+                      );
+                    }}
+                  >
+                    <LangMark id={l.id} size="tiny" />
+                    <span>
+                      <strong>{l.id}</strong>
+                      <small>{l.native}</small>
+                    </span>
+                    {id === l.id && <span className="status-dot" />}
+                  </button>
+                ))}
+            </div>
+          ))}
+        </aside>
+        <section className="panel chat-panel tutor-chat">
+          <div className="chat-heading">
+            <LangMark id={id} />
+            <div>
+              <h3>{id} coach</h3>
+              <p>{l.native} · Focused on language learning</p>
+            </div>
+            <button
+              className="icon-btn"
+              aria-label="Clear this tutor history"
+              disabled={pending || !history.length}
+              onClick={() => setClear(true)}
+            >
+              <RefreshCw size={17} />
+            </button>
+          </div>
+          <div className="chat-messages" aria-live="polite">
+            {history.length === 0 ? (
+              <div className="tutor-welcome">
+                <span className="tutor-spark">
+                  <Sparkles size={29} />
+                </span>
+                <span className="native-greeting" style={{ color: l.color }}>
+                  {l.greeting}
+                </span>
+                <h2>A little {id} goes a long way.</h2>
+                <p>
+                  Learn a phrase, untangle some grammar, or practice for an
+                  exam. We’ll take it one conversation at a time.
+                </p>
+                <div className="prompt-grid">
+                  {[
+                    ["Greetings", "Teach me everyday greetings."],
+                    ["Grammar", "Explain basic sentence grammar."],
+                    ["A quick challenge", "Quiz me on a greeting."],
+                  ].map(([title, prompt]) => (
+                    <button
+                      key={title}
+                      onClick={() => send(prompt)}
+                      disabled={pending}
+                    >
+                      <span>{title}</span>
+                      <ArrowUpRight size={16} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              history.map((m) => (
+                <div className={`bubble ${m.role}`} key={m.id}>
+                  <small>
+                    {m.role === "user"
+                      ? "You"
+                      : m.source === "gemini"
+                        ? `${id} · Gemini`
+                        : `${id} · Scripted practice`}
+                  </small>
+                  <p>{m.content}</p>
+                </div>
+              ))
+            )}
+            {pending && (
+              <div className="bubble assistant">
+                <Loader2 className="spin" size={18} /> Your coach is thinking…
+              </div>
+            )}
+            <div ref={end} />
+          </div>
+          <form
+            className="chat-compose"
+            onSubmit={(e) => {
+              e.preventDefault();
+              send(text);
+            }}
+          >
+            <input
+              aria-label={`Message the ${id} tutor`}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              maxLength={1500}
+              placeholder={`Ask about ${id} grammar, vocabulary, or practice…`}
+            />
+            <button
+              className="btn primary"
+              aria-label="Send tutor message"
+              disabled={pending || !text.trim()}
+            >
+              {pending ? (
+                <Loader2 className="spin" size={17} />
+              ) : (
+                <Send size={17} />
+              )}
+            </button>
+          </form>
+          <p className="chat-disclaimer">
+            {source}. AI answers can make mistakes; verify exam guidance with
+            official sources.
+          </p>
+        </section>
+      </div>
+      {clear && (
+        <Dialog title={`Clear ${id} history?`} onClose={() => setClear(false)}>
+          <p className="muted">This clears only this tutor’s conversation.</p>
+          <button
+            className="btn primary full mt-5"
+            onClick={async () => {
+              try {
+                await c.updateNotes({
+                  ...c.state,
+                  histories: { ...c.state.histories, [id]: [] },
+                });
+                setClear(false);
+              } catch {}
+            }}
+          >
+            Clear conversation
+          </button>
+        </Dialog>
+      )}
+    </>
+  );
+}
+function Practice({ c }: { c: Controller }) {
+  const available = languages.filter((l) => levelsFor(l.id).length);
+  const [id, setId] = useState<Language>(
+      levelsFor(c.state.profile.target).length
+        ? c.state.profile.target
+        : "Japanese",
+    ),
+    [level, setLevel] = useState(levelsFor(id)[0]),
+    [skill, setSkill] = useState("All skills"),
+    [index, setIndex] = useState(0),
+    [choice, setChoice] = useState<number | null>(null),
+    [answers, setAnswers] = useState<{ id: string; choice: number }[]>([]),
+    [checked, setChecked] = useState(false),
+    [finished, setFinished] = useState(false),
+    [saving, setSaving] = useState(false);
+  const bank = questions.filter(
+      (q) =>
+        q.language === id &&
+        q.level === level &&
+        (skill === "All skills" || q.skill === skill),
+    ),
+    q = bank[index],
+    source = examSources[id];
+  const score = answers.filter(
+    (a) => questions.find((q) => q.id === a.id)?.answer === a.choice,
+  ).length;
+  function reset() {
+    setIndex(0);
+    setChoice(null);
+    setAnswers([]);
+    setChecked(false);
+    setFinished(false);
+  }
+  async function next() {
+    if (index + 1 < bank.length) {
+      setIndex((i) => i + 1);
+      setChoice(null);
+      setChecked(false);
+    } else {
+      setSaving(true);
+      try {
+        await c.updateNotes({
+          ...c.state,
+          results: [
+            {
+              language: id,
+              level,
+              score: answers.filter(
+                (a) =>
+                  questions.find((q) => q.id === a.id)?.answer === a.choice,
+              ).length,
+              total: bank.length,
+              day: dayAt(c.state.demoOffset),
+            },
+            ...c.state.results,
+          ].slice(0, 50),
+        });
+        setFinished(true);
+      } catch {
+        c.setNotice("Could not save your practice result. Try again.");
+      } finally {
+        setSaving(false);
+      }
+    }
+  }
+  return (
+    <>
+      <PageTitle
+        eyebrow="MAKE WHAT YOU LEARN STICK"
+        title="A little challenge. A lot of progress."
+        description="Level-based grammar and vocabulary, with explanations after every answer."
+      />
+      <div className="filter-row practice-filters">
+        <label className="select-label">
+          Language
+          <select
+            value={id}
+            onChange={(e) => {
+              const id = e.target.value as Language;
+              setId(id);
+              setLevel(levelsFor(id)[0]);
+              reset();
+            }}
+          >
+            {available.map((l) => (
+              <option key={l.id}>{l.id}</option>
+            ))}
+          </select>
+        </label>
+        <label className="select-label">
+          Level
+          <select
+            value={level}
+            onChange={(e) => {
+              setLevel(e.target.value);
+              reset();
+            }}
+          >
+            {levelsFor(id).map((l) => (
+              <option key={l}>{l}</option>
+            ))}
+          </select>
+        </label>
+        <label className="select-label">
+          Focus
+          <select
+            value={skill}
+            onChange={(e) => {
+              setSkill(e.target.value);
+              reset();
+            }}
+          >
+            <option>All skills</option>
+            <option>Grammar</option>
+            <option>Vocabulary</option>
+          </select>
+        </label>
+        <Pill tone="purple">Original practice · {bank.length} questions</Pill>
+      </div>
+      <div className="practice-grid">
+        <section className="panel quiz-card">
+          {finished ? (
+            <div className="quiz-result">
+              <span className="tutor-spark">
+                <GraduationCap size={30} />
+              </span>
+              <Pill tone="purple">SESSION COMPLETE</Pill>
+              <h2>
+                {score} / {bank.length}
+              </h2>
+              <h3>
+                {score === bank.length
+                  ? "Your practice paid off."
+                  : "Every mistake is a new word learned."}
+              </h3>
+              <p className="muted">
+                {id} · {level} · Saved to your learning history
+              </p>
+              <div className="answer-review">
+                {answers.map((a) => {
+                  const item = questions.find((q) => q.id === a.id)!;
+                  return (
+                    <div key={a.id}>
+                      <strong>
+                        {a.choice === item.answer ? "✓" : "↗"} {item.prompt}
+                      </strong>
+                      <p>{item.explanation}</p>
+                    </div>
+                  );
+                })}
+              </div>
+              <button className="btn primary" onClick={reset}>
+                Practice again
+                <RefreshCw size={16} />
+              </button>
+            </div>
+          ) : q ? (
+            <>
+              <div className="section-heading">
+                <Pill tone="purple">
+                  {id} · {level}
+                </Pill>
+                <span className="muted text-sm">
+                  Question {index + 1} of {bank.length}
+                </span>
+              </div>
+              <div className="progress-track">
+                <div style={{ width: `${(index / bank.length) * 100}%` }} />
+              </div>
+              <div className="eyebrow">{q.skill.toUpperCase()}</div>
+              <h2 className="question-text">{q.prompt}</h2>
+              <div className="quiz-options">
+                {q.options.map((o, i) => (
+                  <button
+                    className={`quiz-option ${choice === i ? "chosen" : ""} ${checked && i === q.answer ? "correct" : ""} ${checked && choice === i && i !== q.answer ? "wrong" : ""}`}
+                    key={o}
+                    onClick={() => setChoice(i)}
+                    disabled={checked}
+                  >
+                    <span>{String.fromCharCode(65 + i)}</span>
+                    <strong>{o}</strong>
+                    {checked && i === q.answer && <CheckCircle2 size={19} />}
+                  </button>
+                ))}
+              </div>
+              {checked && (
+                <div
+                  className={`answer-explanation ${choice === q.answer ? "right" : "incorrect"}`}
+                  role="status"
+                >
+                  <strong>
+                    {choice === q.answer
+                      ? "Exactly right."
+                      : "A good chance to learn."}
+                  </strong>
+                  <p>{q.explanation}</p>
+                </div>
+              )}
+              <button
+                className="btn primary"
+                disabled={choice === null || saving}
+                onClick={() => {
+                  if (!checked) {
+                    setAnswers([...answers, { id: q.id, choice: choice! }]);
+                    setChecked(true);
+                  } else next();
+                }}
+              >
+                {saving
+                  ? "Saving…"
+                  : checked
+                    ? index + 1 === bank.length
+                      ? "See my results"
+                      : "Next question"
+                    : "Check answer"}
+                <ArrowRight size={17} />
+              </button>
+            </>
+          ) : (
+            <div className="empty">
+              <h3>No questions in this filter.</h3>
+              <p>Try another skill or level.</p>
+            </div>
+          )}
+        </section>
+        <div className="stack">
+          <section className="panel source-card">
+            <div className="section-heading">
+              <h2>Know your materials</h2>
+              <ShieldCheck size={18} />
+            </div>
+            <Pill tone="amber">Starter question bank</Pill>
+            <p>
+              These are original educational questions, organized by level. They
+              are not previous-year papers, a full exam, or a certification
+              assessment.
+            </p>
+            {source ? (
+              <>
+                <h3>Explore official materials</h3>
+                <p>{source.note}</p>
+                <a
+                  className="btn secondary full"
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {source.name}
+                  <ExternalLink size={15} />
+                </a>
+                <small>
+                  Official samples and released papers remain on the publisher’s
+                  site. Availability varies.
+                </small>
+              </>
+            ) : (
+              <p>
+                Regional-language levels are informal learning stages, not exam
+                certifications.
+              </p>
+            )}
+          </section>
+          <section className="panel">
+            <h2>Recent practice</h2>
+            {c.state.results.length ? (
+              <div className="results-list">
+                {c.state.results.slice(0, 5).map((r, i) => (
+                  <div key={`${r.day}-${i}`}>
+                    <LangMark id={r.language} size="tiny" />
+                    <span>
+                      <strong>
+                        {r.language} · {r.level}
+                      </strong>
+                      <small>{r.day}</small>
+                    </span>
+                    <Pill>
+                      {r.score}/{r.total}
+                    </Pill>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="muted text-sm mt-4">
+                Finish a practice session to see your results here.
+              </p>
+            )}
+          </section>
+        </div>
+      </div>
+    </>
+  );
+}
+function Library({ c }: { c: Controller }) {
+  const [id, setId] = useState("All languages"),
+    [skill, setSkill] = useState("All skills"),
+    [search, setSearch] = useState(""),
+    [saved, setSaved] = useState(false);
+  const list = resources.filter(
+    (r) =>
+      (id === "All languages" || r.language === id) &&
+      (skill === "All skills" || r.skill === skill) &&
+      (!saved || c.state.bookmarks.includes(r.id)) &&
+      `${r.title} ${r.description} ${r.language}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
+  );
+  async function bookmark(id: string) {
+    try {
+      await c.updateNotes({
+        ...c.state,
+        bookmarks: c.state.bookmarks.includes(id)
+          ? c.state.bookmarks.filter((b) => b !== id)
+          : [...c.state.bookmarks, id],
+      });
+    } catch {}
+  }
+  return (
+    <>
+      <PageTitle
+        eyebrow="GOOD RESOURCES. ZERO GATEKEEPING."
+        title="Your next rabbit hole starts here."
+        description="A handpicked starting point for regional languages and global adventures."
+      />
+      <div className="filter-row">
+        <label className="search-box">
+          <Search size={18} />
+          <input
+            aria-label="Search resources"
+            placeholder="Search guides, audio, grammar…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </label>
+        <label className="select-label">
+          Language
+          <select value={id} onChange={(e) => setId(e.target.value)}>
+            <option>All languages</option>
+            {languages.map((l) => (
+              <option key={l.id}>{l.id}</option>
+            ))}
+          </select>
+        </label>
+        <label className="select-label">
+          Skill
+          <select value={skill} onChange={(e) => setSkill(e.target.value)}>
+            <option>All skills</option>
+            <option>Grammar</option>
+            <option>Vocabulary</option>
+            <option>Listening</option>
+          </select>
+        </label>
+        <button
+          className={`btn secondary ${saved ? "selected" : ""}`}
+          aria-pressed={saved}
+          onClick={() => setSaved(!saved)}
+        >
+          <Bookmark size={16} />
+          Saved
+        </button>
+      </div>
+      <div className="resource-grid">
+        {list.map((r) => (
+          <article className="panel resource-card" key={r.id}>
+            <div className="section-heading">
+              <LangMark id={r.language} />
+              <button
+                className={`icon-btn ${c.state.bookmarks.includes(r.id) ? "saved" : ""}`}
+                aria-label={`${c.state.bookmarks.includes(r.id) ? "Unsave" : "Save"} ${r.title}`}
+                aria-pressed={c.state.bookmarks.includes(r.id)}
+                onClick={() => bookmark(r.id)}
+              >
+                <Bookmark size={18} />
+              </button>
+            </div>
+            <div className="resource-meta">
+              <span>{r.language}</span>
+              <span>·</span>
+              <span>{r.skill}</span>
+            </div>
+            <h3>{r.title}</h3>
+            <p>{r.description}</p>
+            <div className="resource-bottom">
+              <div>
+                <Pill tone={r.access === "Free" ? "green" : "amber"}>
+                  {r.access}
+                </Pill>
+                <span className="text-xs muted">{r.level}</span>
+              </div>
+              <a
+                href={r.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="resource-link"
+                aria-label={`Open ${r.title}`}
+              >
+                Explore
+                <ArrowUpRight size={17} />
+              </a>
+            </div>
+          </article>
+        ))}
+      </div>
+      {!list.length && (
+        <div className="panel empty">
+          <BookOpen size={35} />
+          <h3>No resources match yet.</h3>
+          <p>Try another filter or save a resource to build your collection.</p>
+        </div>
+      )}
+      <p className="library-note">
+        Free tiers can have limits. Resource access and availability may change;
+        check the publisher’s current terms.
+      </p>
+    </>
+  );
+}
+function ProfileForm({ c, done }: { c: Controller; done: () => void }) {
+  const [p, setP] = useState<Profile>(c.state.profile),
+    [error, setError] = useState("");
+  function toggle(id: Language) {
+    setP((s) => {
+      const known = s.known.includes(id)
+        ? s.known.filter((l) => l !== id)
+        : [...s.known, id];
+      const target = known.includes(s.target)
+        ? (languages.find((l) => !known.includes(l.id))?.id ?? s.target)
+        : s.target;
+      return { ...s, known, target };
+    });
+  }
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!p.name.trim() || !p.known.length || p.known.includes(p.target)) {
+      setError(
+        "Add your name, choose at least one known language, and select a different target language.",
+      );
+      return;
+    }
+    if (await c.saveProfile({ ...p, name: p.name.trim() })) done();
+  }
+  return (
+    <form onSubmit={submit} className="profile-form">
+      <p className="muted">
+        Tell us what you can share and what you’d love to learn. All times use
+        IST.
+      </p>
+      <label>
+        Your name
+        <input
+          value={p.name}
+          maxLength={60}
+          onChange={(e) => setP({ ...p, name: e.target.value })}
+          required
+        />
+      </label>
+      <fieldset>
+        <legend>I can help someone with</legend>
+        <div className="language-chips">
+          {languages.map((l) => (
+            <button
+              type="button"
+              className={`language-chip ${p.known.includes(l.id) ? "selected" : ""}`}
+              key={l.id}
+              onClick={() => toggle(l.id)}
+              aria-pressed={p.known.includes(l.id)}
+            >
+              {p.known.includes(l.id) && <Check size={13} />} {l.id}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+      <div className="form-grid">
+        <label>
+          I want to learn
+          <select
+            value={p.target}
+            onChange={(e) => setP({ ...p, target: e.target.value as Language })}
+          >
+            {languages
+              .filter((l) => !p.known.includes(l.id))
+              .map((l) => (
+                <option key={l.id}>{l.id}</option>
+              ))}
+          </select>
+        </label>
+        <label>
+          My current level
+          <select
+            value={p.level}
+            onChange={(e) => setP({ ...p, level: e.target.value })}
+          >
+            <option>Beginner</option>
+            <option>Intermediate</option>
+            <option>Advanced</option>
+          </select>
+        </label>
+        <label>
+          Best time to practice
+          <select
+            value={p.slot}
+            onChange={(e) => setP({ ...p, slot: e.target.value })}
+          >
+            <option>Morning</option>
+            <option>Afternoon</option>
+            <option>Evening</option>
+          </select>
+        </label>
+        <label>
+          Daily commitment
+          <select
+            value={p.goal}
+            onChange={(e) => setP({ ...p, goal: Number(e.target.value) })}
+          >
+            {[10, 15, 20, 30].map((n) => (
+              <option key={n} value={n}>
+                {n} minutes
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <label>
+        A little about you
+        <textarea
+          value={p.bio}
+          maxLength={300}
+          onChange={(e) => setP({ ...p, bio: e.target.value })}
+          rows={2}
+        />
+      </label>
+      <p className="text-xs muted">
+        Your live profile is visible to signed-in learners for matching.
+        Changing languages releases an existing partnership.
+      </p>
+      {error && (
+        <p className="error-text" role="alert">
+          {error}
+        </p>
+      )}
+      <button className="btn primary full" disabled={c.busy}>
+        {c.busy ? "Saving…" : "Find my people"}
+        <ArrowRight size={17} />
+      </button>
+      {!c.state.onboarded && c.mode === "demo" && (
+        <button
+          className="text-button centered"
+          type="button"
+          onClick={() => {
+            c.resetDemo(true);
+            done();
+          }}
+        >
+          Or explore a sample journey
+        </button>
+      )}
+    </form>
+  );
+}
+function Account({ c }: { c: Controller }) {
+  const [email, setEmail] = useState(""),
+    [reset, setReset] = useState(false);
+  return (
+    <div className="account-settings">
+      <div className="connection-banner">
+        <Globe2 size={21} />
+        <div>
+          <strong>
+            {c.configured
+              ? "Supabase is configured"
+              : "No credentials needed for the demo"}
+          </strong>
+          <p>
+            {c.configured
+              ? "Sign in for real profiles and live exchanges."
+              : "Add Supabase settings to .env.local to enable live accounts."}
+          </p>
+        </div>
+      </div>
+      {c.session ? (
+        <>
+          <p className="muted">Signed in as {c.session.user.email}</p>
+          <div className="flex flex-wrap gap-2">
+            <button className="btn primary" onClick={c.switchLive}>
+              Open live account
+            </button>
+            <button className="btn secondary" onClick={c.signOut}>
+              <LogOut size={16} />
+              Sign out
+            </button>
+            <button className="btn secondary" onClick={c.refresh}>
+              Refresh cloud state
+            </button>
+          </div>
+        </>
+      ) : (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            c.signIn(email);
+          }}
+        >
+          <label>
+            Email address
+            <input
+              type="email"
+              value={email}
+              required
+              placeholder="you@example.com"
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </label>
+          <button
+            className="btn primary full"
+            disabled={!c.configured || c.busy}
+          >
+            Send sign-in link
+            <ArrowRight size={16} />
+          </button>
+        </form>
+      )}
+      <div className="divider" />
+      <h3>Presenter controls</h3>
+      <p className="muted text-sm">
+        Demo and live progress are separate. Loading a sample does not change
+        cloud data.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <button className="btn secondary" onClick={() => c.resetDemo(true)}>
+          Load sample journey
+        </button>
+        <button className="btn secondary" onClick={() => setReset(true)}>
+          Reset local demo
+        </button>
+      </div>
+      {reset && (
+        <div className="warning">
+          <span>
+            This removes the local demo’s progress and tutor histories.
+          </span>
+          <button
+            className="text-button"
+            onClick={() => {
+              c.resetDemo();
+              setReset(false);
+            }}
+          >
+            Confirm reset
+          </button>
+        </div>
+      )}
+      <p className="text-xs muted mt-5">
+        Gemini runs on the server when configured. Offline responses are
+        scripted and labeled in each conversation.
+      </p>
+    </div>
+  );
+}
+function Checkin({ c, done }: { c: Controller; done: () => void }) {
+  const [confirm, setConfirm] = useState(false);
+  return (
+    <div className="checkin-content">
+      <span className="tutor-spark">
+        <Flame size={30} />
+      </span>
+      <h3>{c.state.profile.goal} minutes. One small promise.</h3>
+      <p className="muted">
+        A partner conversation, a tutor session, or focused study all count.
+        This MVP uses an honest self-reported check-in.
+      </p>
+      <label className="checkbox-row">
+        <input
+          type="checkbox"
+          checked={confirm}
+          onChange={(e) => setConfirm(e.target.checked)}
+        />
+        <span>
+          I completed at least {c.state.profile.goal} minutes of language
+          practice today.
+        </span>
+      </label>
+      <button
+        className="btn primary full"
+        disabled={
+          !confirm ||
+          c.busy ||
+          inCooldown(c.state) ||
+          c.state.lastCheckin === dayAt(c.state.demoOffset)
+        }
+        onClick={async () => {
+          if (await c.checkin()) done();
+        }}
+      >
+        Log practice
+        <CheckCircle2 size={17} />
+      </button>
+    </div>
+  );
+}

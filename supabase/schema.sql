@@ -64,13 +64,15 @@ create policy pair_messages_write on public.peer_messages for insert to authenti
 -- Privileged functions live in a non-exposed schema. All authenticate internally;
 -- public RPC wrappers are SECURITY INVOKER. A small global lock makes pairing atomic.
 create function private.refresh_accountability() returns void language plpgsql security definer set search_path='' as $$
-declare p public.profiles; today date=(now() at time zone 'Asia/Kolkata')::date; lost int;
+declare p public.profiles; today date=(now() at time zone 'Asia/Kolkata')::date; lost int; start_day date;
 begin
  if auth.uid() is null then raise exception 'Sign in first'; end if;
  perform pg_advisory_xact_lock(810101);
  select * into p from public.profiles where id=auth.uid() for update;
  if p.id is null or p.last_evaluated>=today then return; end if;
- lost=greatest(0,today-p.last_evaluated-case when p.last_checkin=p.last_evaluated then 1 else 0 end);
+ -- Paused days cannot become new offenses. Exempt dates touched by cooldown.
+ start_day=greatest(p.last_evaluated,coalesce((p.cooldown_until at time zone 'Asia/Kolkata')::date+1,p.last_evaluated));
+ lost=greatest(0,today-start_day-case when p.last_checkin=start_day then 1 else 0 end);
  if lost>0 then
    if p.misses+lost>=3 and p.partner_id is not null then update public.profiles set partner_id=null where id=p.partner_id and partner_id=p.id; end if;
    update public.profiles set misses=misses+lost,streak=0,cooldown_until=case when misses+lost>=2 then now()+interval '24 hours' else null end,partner_id=case when misses+lost>=3 then null else partner_id end where id=p.id;
@@ -109,7 +111,7 @@ begin
  update public.profiles set completed=completed+1,streak=streak+1,last_checkin=today,last_evaluated=today where id=p.id;
 end $$;
 create function private.pair_partner(other_id uuid) returns void language plpgsql security definer set search_path='' as $$
-declare me public.profiles; other public.profiles; today date=(now() at time zone 'Asia/Kolkata')::date; lost int;
+declare me public.profiles; other public.profiles; today date=(now() at time zone 'Asia/Kolkata')::date; lost int; start_day date;
 begin
  if auth.uid() is null or other_id=auth.uid() then raise exception 'Choose another learner'; end if;
  perform private.refresh_accountability();
@@ -118,7 +120,8 @@ begin
  if me.id is null or other.id is null then raise exception 'Learner profile unavailable'; end if;
  -- Recalculate a candidate's overdue commitment before allowing a pair.
  if other.last_evaluated<today then
-  lost=greatest(0,today-other.last_evaluated-case when other.last_checkin=other.last_evaluated then 1 else 0 end);
+  start_day=greatest(other.last_evaluated,coalesce((other.cooldown_until at time zone 'Asia/Kolkata')::date+1,other.last_evaluated));
+  lost=greatest(0,today-start_day-case when other.last_checkin=start_day then 1 else 0 end);
   if lost>0 then
    if other.misses+lost>=3 and other.partner_id is not null then update public.profiles set partner_id=null where id=other.partner_id and partner_id=other.id; end if;
    update public.profiles set misses=misses+lost,streak=0,cooldown_until=case when misses+lost>=2 then now()+interval '24 hours' else null end,partner_id=case when misses+lost>=3 then null else partner_id end where id=other.id;
