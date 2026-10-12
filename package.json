@@ -2,7 +2,30 @@
   "name": "fluent-ly",
   "version": "0.1.0",
   "private": true,
-  "scripts": {"dev":"next dev --hostname 127.0.0.1", "build":"next build", "start":"next start --hostname 127.0.0.1", "typecheck":"tsc --noEmit", "test":"tsx --test tests/*.test.ts"},
-  "dependencies": {"next":"16.4.0","react":"19.3.0","react-dom":"19.3.0","@supabase/supabase-js":"2.117.3","lucide-react":"1.55.0","ai":"7.0.137","@ai-sdk/google":"4.0.93"},
-  "devDependencies": {"typescript":"^5.9.3","@types/node":"^22.19.0","@types/react":"^19.2.0","@types/react-dom":"^19.2.0","tailwindcss":"4.3.3","@tailwindcss/postcss":"4.3.3","tsx":"^4.21.0"}
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/google": "4.0.93",
+    "@supabase/supabase-js": "2.117.3",
+    "ai": "7.0.137",
+    "lucide-react": "1.55.0",
+    "next": "16.4.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.9",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "^22.19.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "tailwindcss": "4.3.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
 }
