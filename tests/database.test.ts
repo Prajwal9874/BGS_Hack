@@ -28,7 +28,7 @@ test("Postgres integration: guarded profiles, atomic pairing, private messages, 
       );
     };
     await asUser(a);
-    await db.query(`select public.save_profile($1,$2,$3,$4,$5,$6,$7)`, [
+    await db.query(`select public.save_profile($1,$2,$3,$4,$5,$6,$7,$8)`, [
       "Prajwal",
       ["Hindi", "English"],
       "Kannada",
@@ -36,7 +36,30 @@ test("Postgres integration: guarded profiles, atomic pairing, private messages, 
       "Evening",
       15,
       "Hello",
+      { Hindi: "Native", English: "Fluent" },
     ]);
+    assert.deepEqual(
+      (
+        await db.query<{ proficiency: Record<string, string> }>(
+          "select proficiency from public.profiles where id=$1",
+          [a],
+        )
+      ).rows[0].proficiency,
+      { Hindi: "Native", English: "Fluent" },
+    );
+    await assert.rejects(
+      db.query("select public.save_profile($1,$2,$3,$4,$5,$6,$7,$8)", [
+        "Prajwal",
+        ["Hindi", "English"],
+        "Kannada",
+        "Beginner",
+        "Evening",
+        15,
+        "Hello",
+        { Japanese: "Fluent" },
+      ]),
+      /Invalid language proficiency/,
+    );
     await asUser(b);
     await db.query(`select public.save_profile($1,$2,$3,$4,$5,$6,$7)`, [
       "Ananya",

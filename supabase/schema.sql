@@ -9,6 +9,7 @@ create table public.profiles (
  id uuid primary key references auth.users(id) on delete cascade,
  name text not null check(length(name) between 1 and 60),
  known text[] not null check(cardinality(known) between 1 and 13),
+ proficiency jsonb not null default '{}'::jsonb check(jsonb_typeof(proficiency)='object'),
  target text not null,
  level text not null check(level in ('Beginner','Intermediate','Advanced')),
  slot text not null check(slot in ('Morning','Afternoon','Evening')),
@@ -88,16 +89,17 @@ begin
  update public.profiles set partner_id=null where id=pid and partner_id=auth.uid();
  update public.profiles set partner_id=null where id=auth.uid();
 end $$;
-create function private.save_profile(p_name text,p_known text[],p_target text,p_level text,p_slot text,p_goal int,p_bio text) returns void language plpgsql security definer set search_path='' as $$
+create function private.save_profile(p_name text,p_known text[],p_target text,p_level text,p_slot text,p_goal int,p_bio text,p_proficiency jsonb default '{}'::jsonb) returns void language plpgsql security definer set search_path='' as $$
 declare allowed text[]=array['Kannada','Hindi','Japanese','German','French','Italian','Korean','Tamil','Telugu','Marathi','Bengali','Malayalam','English']; old public.profiles;
 begin
  if auth.uid() is null then raise exception 'Sign in first'; end if;
  if p_name is null or length(trim(p_name)) not between 1 and 60 or p_known is null or cardinality(p_known) not between 1 and 13 or not(p_known<@allowed) or p_target is null or not(p_target=any(allowed)) or p_target=any(p_known) or p_bio is null or length(p_bio)>300 then raise exception 'Invalid learning profile'; end if;
+ if p_proficiency is null or jsonb_typeof(p_proficiency)<>'object' or exists(select 1 from jsonb_each_text(p_proficiency) e where not(e.key=any(p_known)) or e.value not in ('Native','Fluent','Conversational')) then raise exception 'Invalid language proficiency'; end if;
  perform pg_advisory_xact_lock(810101);
  select * into old from public.profiles where id=auth.uid() for update;
  if old.id is not null and (old.known<>p_known or old.target<>p_target) then perform private.release_partner(); end if;
- insert into public.profiles(id,name,known,target,level,slot,goal,bio) values(auth.uid(),trim(p_name),p_known,p_target,p_level,p_slot,p_goal,p_bio)
- on conflict(id) do update set name=excluded.name,known=excluded.known,target=excluded.target,level=excluded.level,slot=excluded.slot,goal=excluded.goal,bio=excluded.bio;
+ insert into public.profiles(id,name,known,proficiency,target,level,slot,goal,bio) values(auth.uid(),trim(p_name),p_known,p_proficiency,p_target,p_level,p_slot,p_goal,p_bio)
+ on conflict(id) do update set name=excluded.name,known=excluded.known,proficiency=excluded.proficiency,target=excluded.target,level=excluded.level,slot=excluded.slot,goal=excluded.goal,bio=excluded.bio;
 end $$;
 create function private.daily_checkin() returns void language plpgsql security definer set search_path='' as $$
 declare p public.profiles; today date=(now() at time zone 'Asia/Kolkata')::date;
@@ -145,15 +147,15 @@ begin
 end $$;
 
 revoke all on all functions in schema private from public,anon,authenticated;
-grant execute on function private.refresh_accountability(),private.release_partner(),private.save_profile(text,text[],text,text,text,int,text),private.daily_checkin(),private.pair_partner(uuid),private.claim_tutor_request() to authenticated;
+grant execute on function private.refresh_accountability(),private.release_partner(),private.save_profile(text,text[],text,text,text,int,text,jsonb),private.daily_checkin(),private.pair_partner(uuid),private.claim_tutor_request() to authenticated;
 create function public.refresh_accountability() returns void language sql security invoker set search_path='' as $$select private.refresh_accountability();$$;
 create function public.release_partner() returns void language sql security invoker set search_path='' as $$select private.release_partner();$$;
-create function public.save_profile(p_name text,p_known text[],p_target text,p_level text,p_slot text,p_goal int,p_bio text) returns void language sql security invoker set search_path='' as $$select private.save_profile(p_name,p_known,p_target,p_level,p_slot,p_goal,p_bio);$$;
+create function public.save_profile(p_name text,p_known text[],p_target text,p_level text,p_slot text,p_goal int,p_bio text,p_proficiency jsonb default '{}'::jsonb) returns void language sql security invoker set search_path='' as $$select private.save_profile(p_name,p_known,p_target,p_level,p_slot,p_goal,p_bio,p_proficiency);$$;
 create function public.daily_checkin() returns void language sql security invoker set search_path='' as $$select private.daily_checkin();$$;
 create function public.pair_partner(other_id uuid) returns void language sql security invoker set search_path='' as $$select private.pair_partner(other_id);$$;
 create function public.claim_tutor_request() returns boolean language sql security invoker set search_path='' as $$select private.claim_tutor_request();$$;
-revoke all on function public.refresh_accountability(),public.release_partner(),public.save_profile(text,text[],text,text,text,int,text),public.daily_checkin(),public.pair_partner(uuid),public.claim_tutor_request() from public,anon;
-grant execute on function public.refresh_accountability(),public.release_partner(),public.save_profile(text,text[],text,text,text,int,text),public.daily_checkin(),public.pair_partner(uuid),public.claim_tutor_request() to authenticated;
+revoke all on function public.refresh_accountability(),public.release_partner(),public.save_profile(text,text[],text,text,text,int,text,jsonb),public.daily_checkin(),public.pair_partner(uuid),public.claim_tutor_request() from public,anon;
+grant execute on function public.refresh_accountability(),public.release_partner(),public.save_profile(text,text[],text,text,text,int,text,jsonb),public.daily_checkin(),public.pair_partner(uuid),public.claim_tutor_request() to authenticated;
 commit;
 -- Enable Realtime after the schema commits. Run these once in Supabase:
 alter publication supabase_realtime add table public.profiles, public.peer_messages;

@@ -2,6 +2,9 @@ import { type Language, type Partner, demoPartners } from "./data";
 export type Profile = {
   name: string;
   known: Language[];
+  proficiency?: Partial<
+    Record<Language, "Native" | "Fluent" | "Conversational">
+  >;
   target: Language;
   level: string;
   slot: string;
@@ -59,6 +62,7 @@ export function initialState(): State {
     profile: {
       name: "Prajwal",
       known: ["Hindi", "English"],
+      proficiency: { Hindi: "Fluent", English: "Fluent" },
       target: "Kannada",
       level: "Beginner",
       slot: "Evening",

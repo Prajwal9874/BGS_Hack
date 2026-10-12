@@ -1840,6 +1840,28 @@ legend {
   flex-direction: column;
   gap: 16px;
 }
+.auth-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #111017;
+}
+.auth-tabs button {
+  flex: 1;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 9px;
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+}
+.auth-tabs button.selected {
+  background: #ab86ff19;
+  border-color: #ab86ff28;
+  color: #d3baff;
+}
 .account-settings form {
   display: flex;
   flex-direction: column;

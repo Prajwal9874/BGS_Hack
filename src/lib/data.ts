@@ -150,6 +150,9 @@ export type Partner = {
   id: string;
   name: string;
   known: Language[];
+  proficiency?: Partial<
+    Record<Language, "Native" | "Fluent" | "Conversational">
+  >;
   target: Language;
   level: string;
   slot: string;

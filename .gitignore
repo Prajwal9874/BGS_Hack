@@ -2,6 +2,7 @@ node_modules/
 .next/
 .env*
 !.env.example
+!.env.test-accounts.example
 *.tsbuildinfo
 work/
 test-results/

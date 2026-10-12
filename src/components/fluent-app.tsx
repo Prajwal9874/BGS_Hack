@@ -59,6 +59,7 @@ import {
 import { levelsFor, questions } from "@/lib/questions";
 import { useFluent } from "@/lib/use-fluent";
 import ExchangeSession from "./exchange-session";
+import AuthForm from "./auth-form";
 type Controller = ReturnType<typeof useFluent>;
 type View =
   | "Overview"
@@ -173,6 +174,10 @@ export default function FluentApp() {
       null,
     );
   const [tutorLanguage, setTutorLanguage] = useState<Language | null>(null);
+  useEffect(() => {
+    if (c.mode === "live" && c.syncStatus === "Connected · create your profile")
+      setModal("profile");
+  }, [c.mode, c.syncStatus]);
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [view]);
@@ -759,6 +764,9 @@ function PartnerCard({
             <LangMark id={s.profile.target} size="tiny" />
             {s.profile.target}
           </span>
+          {p.proficiency?.[s.profile.target] && (
+            <small>{p.proficiency[s.profile.target]}</small>
+          )}
         </div>
         <RefreshCw size={17} />
         <div>
@@ -915,8 +923,7 @@ function Loop({
     e.preventDefault();
     if (text.trim()) {
       const value = text.trim();
-      setText("");
-      await c.sendPeer(value);
+      if (await c.sendPeer(value)) setText("");
     }
   }
   return (
@@ -1821,7 +1828,7 @@ function ProfileForm({ c, done }: { c: Controller; done: () => void }) {
         />
       </label>
       <fieldset>
-        <legend>I can help someone with</legend>
+        <legend>Languages I’m proficient in</legend>
         <div className="language-chips">
           {languages.map((l) => (
             <button
@@ -1836,6 +1843,30 @@ function ProfileForm({ c, done }: { c: Controller; done: () => void }) {
           ))}
         </div>
       </fieldset>
+      <div className="form-grid">
+        {p.known.map((id) => (
+          <label key={id}>
+            {id} proficiency
+            <select
+              value={p.proficiency?.[id] ?? "Fluent"}
+              onChange={(e) =>
+                setP({
+                  ...p,
+                  proficiency: {
+                    ...p.proficiency,
+                    [id]: e.target.value as
+                      "Native" | "Fluent" | "Conversational",
+                  },
+                })
+              }
+            >
+              <option>Native</option>
+              <option>Fluent</option>
+              <option>Conversational</option>
+            </select>
+          </label>
+        ))}
+      </div>
       <div className="form-grid">
         <label>
           I want to learn
@@ -1924,8 +1955,7 @@ function ProfileForm({ c, done }: { c: Controller; done: () => void }) {
   );
 }
 function Account({ c }: { c: Controller }) {
-  const [email, setEmail] = useState(""),
-    [reset, setReset] = useState(false);
+  const [reset, setReset] = useState(false);
   return (
     <div className="account-settings">
       <div className="connection-banner">
@@ -1960,30 +1990,12 @@ function Account({ c }: { c: Controller }) {
           </div>
         </>
       ) : (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            c.signIn(email);
-          }}
-        >
-          <label>
-            Email address
-            <input
-              type="email"
-              value={email}
-              required
-              placeholder="you@example.com"
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </label>
-          <button
-            className="btn primary full"
-            disabled={!c.configured || c.busy}
-          >
-            Send sign-in link
-            <ArrowRight size={16} />
-          </button>
-        </form>
+        <AuthForm
+          configured={c.configured}
+          busy={c.busy}
+          passwordAuth={c.passwordAuth}
+          magicLink={c.signIn}
+        />
       )}
       <div className="divider" />
       <h3>Presenter controls</h3>

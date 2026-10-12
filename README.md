@@ -25,7 +25,8 @@ Stop the dev server before starting production on the same port. No credentials 
 
 ## What works
 
-- Onboarding: name, known languages, target language, level, daily minutes, availability, and bio.
+- Email/password sign-in and signup, with email-link login as an alternative.
+- Onboarding: name, known languages with Native/Fluent/Conversational proficiency, target language, level, daily minutes, availability, and bio.
 - Reciprocal matching: both learners must know the other's target language. Reliability fit is ranked with a bonus for matching availability.
 - One active partner, exchange chat, and a guided 50/50 practice timer with conversation starters. The timer runs locally, not across devices.
 - Daily self-reported check-in, streak, reliability, warnings, 24-hour cooldowns, partnership release, and rematching. A check-in counts at most once per IST calendar day.
@@ -150,3 +151,17 @@ Deliberately outside this MVP: audio/video calls, speech recognition, payments, 
 - `src/app/api/tutor/route.ts`: validated server-only Gemini calls and fallback
 - `supabase/schema.sql`: tables, policies, protected RPCs, Realtime publication
 - `tests/`: domain and Postgres integration tests
+
+## Live chat connection work
+
+Email/password login and per-language proficiency are implemented. A live project still needs to be selected or created through the Supabase plugin; no existing unrelated project has been changed.
+
+After a dedicated project is configured, create two real test accounts and pair them through the app. For simultaneous browser testing, use separate browser profiles, or open account A on http://127.0.0.1:3000 and account B on http://localhost:3000 so their sessions use separate browser storage.
+
+To verify actual Realtime delivery and persistence, copy `.env.test-accounts.example` to the ignored `.env.test-accounts`, fill in the two test logins, then run:
+
+```powershell
+node --env-file=.env.local --env-file=.env.test-accounts scripts/verify-live-chat.mjs
+```
+
+The verifier signs in two distinct Auth users, confirms reciprocal pairing and saved proficiency, sends a message in both directions, waits for both Realtime events, rereads both messages from Postgres, and checks that an unauthenticated client cannot read the chat. It never prints passwords or tokens. It does send two labeled test messages into the paired conversation.

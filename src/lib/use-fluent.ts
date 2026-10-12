@@ -23,6 +23,7 @@ function fromRow(p: Record<string, unknown>): Partner {
     id: String(p.id),
     name: String(p.name),
     known: p.known as Language[],
+    proficiency: p.proficiency as Profile["proficiency"],
     target: p.target as Language,
     level: String(p.level),
     slot: String(p.slot),
@@ -81,13 +82,24 @@ export function useFluent() {
   }, [state, ready, mode]);
   useEffect(() => {
     if (!supabase) return;
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      if (
+        data.session &&
+        localStorage.getItem("fluent.ly.mode.v1") !== "demo"
+      ) {
+        setState(initialState());
+        setMode("live");
+      }
+    });
     const { data } = supabase.auth.onAuthStateChange((_event, s) =>
       setSession(s),
     );
     return () => data.subscription.unsubscribe();
   }, []);
+  const liveRequest = useRef(0);
   const loadLive = useCallback(async () => {
+    const requestId = ++liveRequest.current;
     if (!supabase || !session || currentMode.current !== "live") return;
     const refresh = await supabase.rpc("refresh_accountability");
     if (refresh.error) throw new Error(refresh.error.message);
@@ -109,7 +121,13 @@ export function useFluent() {
         .map(fromRow),
     );
     if (!own) {
-      setState(initialState());
+      setState({
+        ...initialState(),
+        profile: {
+          ...initialState().profile,
+          name: session.user.user_metadata?.display_name ?? "",
+        },
+      });
       setSyncStatus("Connected · create your profile");
       return;
     }
@@ -120,6 +138,7 @@ export function useFluent() {
       profile: {
         name: own.name,
         known: own.known,
+        proficiency: own.proficiency ?? {},
         target: own.target,
         level: own.level,
         slot: own.slot,
@@ -147,10 +166,11 @@ export function useFluent() {
         .or(
           `sender_id.eq.${session.user.id},recipient_id.eq.${session.user.id}`,
         )
-        .order("created_at", { ascending: true })
+        .order("created_at", { ascending: false })
         .limit(100);
       if (mr.error) throw new Error(mr.error.message);
       s.peerMessages = (mr.data ?? [])
+        .reverse()
         .filter(
           (m) =>
             (m.sender_id === session.user.id &&
@@ -164,7 +184,7 @@ export function useFluent() {
           content: m.content,
         }));
     }
-    if (currentMode.current === "live") {
+    if (currentMode.current === "live" && requestId === liveRequest.current) {
       setState(s);
       setSyncStatus("Connected · Supabase");
     }
@@ -229,17 +249,15 @@ export function useFluent() {
   }
   async function updateNotes(next: State) {
     if (mode === "live" && session && supabase) {
-      const { error } = await supabase
-        .from("learning_state")
-        .upsert({
-          user_id: session.user.id,
-          data: {
-            histories: next.histories,
-            bookmarks: next.bookmarks,
-            results: next.results,
-            activities: next.activities,
-          },
-        });
+      const { error } = await supabase.from("learning_state").upsert({
+        user_id: session.user.id,
+        data: {
+          histories: next.histories,
+          bookmarks: next.bookmarks,
+          results: next.results,
+          activities: next.activities,
+        },
+      });
       if (error) {
         setNotice(`Not saved to cloud: ${error.message}`);
         throw error;
@@ -258,6 +276,12 @@ export function useFluent() {
           p_slot: profile.slot,
           p_goal: profile.goal,
           p_bio: profile.bio,
+          p_proficiency: Object.fromEntries(
+            profile.known.map((id) => [
+              id,
+              profile.proficiency?.[id] ?? "Fluent",
+            ]),
+          ),
         });
         if (error) throw error;
         await loadLive();
@@ -320,17 +344,15 @@ export function useFluent() {
     });
   }
   async function sendPeer(content: string) {
-    await action(async () => {
+    return await action(async () => {
       const s = current.current;
       if (!s.partner) return;
       if (mode === "live" && session && supabase) {
-        const { error } = await supabase
-          .from("peer_messages")
-          .insert({
-            sender_id: session.user.id,
-            recipient_id: s.partner.id,
-            content,
-          });
+        const { error } = await supabase.from("peer_messages").insert({
+          sender_id: session.user.id,
+          recipient_id: s.partner.id,
+          content,
+        });
         if (error) throw error;
         await loadLive();
       } else {
@@ -390,6 +412,7 @@ export function useFluent() {
     return data.notice as string;
   }
   function resetDemo(sample = false) {
+    localStorage.setItem("fluent.ly.mode.v1", "demo");
     setMode("demo");
     setPartners(demoPartners);
     setState(sample ? sampleState() : initialState());
@@ -399,6 +422,33 @@ export function useFluent() {
         ? "Sample journey loaded · all partners and progress are simulated."
         : "Demo reset. Start your new learning journey.",
     );
+  }
+  async function passwordAuth(
+    email: string,
+    password: string,
+    signup: boolean,
+  ) {
+    return action(async () => {
+      if (!supabase) throw new Error("Supabase is not configured.");
+      const result = signup
+        ? await supabase.auth.signUp({
+            email,
+            password,
+            options: { emailRedirectTo: window.location.origin },
+          })
+        : await supabase.auth.signInWithPassword({ email, password });
+      if (result.error) throw result.error;
+      if (result.data.session) {
+        setSession(result.data.session);
+        setState(initialState());
+        setMode("live");
+        localStorage.setItem("fluent.ly.mode.v1", "live");
+        setNotice("Signed in. Loading your learner profile…");
+      } else
+        setNotice(
+          "Account created. Check your email to verify it, then sign in.",
+        );
+    });
   }
   async function signIn(email: string) {
     await action(async () => {
@@ -436,12 +486,14 @@ export function useFluent() {
     updateNotes,
     resetDemo,
     signIn,
+    passwordAuth,
     switchLive: () => {
       if (session) {
+        localStorage.setItem("fluent.ly.mode.v1", "live");
         setMode("live");
         setState(initialState());
         setNotice("Loading your live account…");
-      } else setNotice("Sign in by email first.");
+      } else setNotice("Sign in first to open your live account.");
     },
     refresh: () => action(loadLive),
     signOut: () =>
