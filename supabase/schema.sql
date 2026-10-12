@@ -70,7 +70,7 @@ begin
  perform pg_advisory_xact_lock(810101);
  select * into p from public.profiles where id=auth.uid() for update;
  if p.id is null or p.last_evaluated>=today then return; end if;
- lost=least(3,greatest(0,today-p.last_evaluated-case when p.last_checkin=p.last_evaluated then 1 else 0 end));
+ lost=greatest(0,today-p.last_evaluated-case when p.last_checkin=p.last_evaluated then 1 else 0 end);
  if lost>0 then
    if p.misses+lost>=3 and p.partner_id is not null then update public.profiles set partner_id=null where id=p.partner_id and partner_id=p.id; end if;
    update public.profiles set misses=misses+lost,streak=0,cooldown_until=case when misses+lost>=2 then now()+interval '24 hours' else null end,partner_id=case when misses+lost>=3 then null else partner_id end where id=p.id;
@@ -118,7 +118,7 @@ begin
  if me.id is null or other.id is null then raise exception 'Learner profile unavailable'; end if;
  -- Recalculate a candidate's overdue commitment before allowing a pair.
  if other.last_evaluated<today then
-  lost=least(3,greatest(0,today-other.last_evaluated-case when other.last_checkin=other.last_evaluated then 1 else 0 end));
+  lost=greatest(0,today-other.last_evaluated-case when other.last_checkin=other.last_evaluated then 1 else 0 end);
   if lost>0 then
    if other.misses+lost>=3 and other.partner_id is not null then update public.profiles set partner_id=null where id=other.partner_id and partner_id=other.id; end if;
    update public.profiles set misses=misses+lost,streak=0,cooldown_until=case when misses+lost>=2 then now()+interval '24 hours' else null end,partner_id=case when misses+lost>=3 then null else partner_id end where id=other.id;

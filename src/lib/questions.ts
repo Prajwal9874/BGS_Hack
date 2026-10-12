@@ -43,15 +43,15 @@ const banks: Partial<Record<Language,Record<string,[Seed,Seed]>>> = {
  'TOPIK 6':[['전문가___ 모든 것을 알 수는 없다.',['라고 해서','기 위해서','는 동안'],0,'〜라고 해서 … 는 아니다/없다 rejects an assumed conclusion: being an expert does not mean knowing everything.'],['What does 간과하다 mean?',['To overlook','To emphasize','To negotiate'],0,'간과하다 means failing to notice or take something into account.']],
  },
  Kannada:{
- Beginner:[['What does ನಮಸ್ಕಾರ (namaskāra) mean?',['Hello / respectful greeting','Good night','Sorry'],0,'ನಮಸ್ಕಾರ is a respectful greeting used in Kannada.'],['Choose the Kannada word for water.',['ನೀರು (nīru)','ಮನೆ (mane)','ಪುಸ್ತಕ (pustaka)'],0,'ನೀರು means water; ಮನೆ means house; ಪುಸ್ತಕ means book.']],
+ Beginner:[['Which word order is common in Kannada?',['Subject–object–verb','Verb–subject–object','Object–verb–subject'],0,'Kannada commonly puts the verb at the end: ನಾನು ಕನ್ನಡ ಕಲಿಯುತ್ತಿದ್ದೇನೆ — I am learning Kannada.'],['Choose the Kannada word for water.',['ನೀರು (nīru)','ಮನೆ (mane)','ಪುಸ್ತಕ (pustaka)'],0,'ನೀರು means water; ಮನೆ means house; ಪುಸ್ತಕ means book.']],
  Intermediate:[['ನಾನು ಕನ್ನಡ ಕಲಿಯುತ್ತಿದ್ದೇನೆ. What does this mean?',['I am learning Kannada','I taught Hindi','I will go home'],0,'ನಾನು means I, ಕನ್ನಡ means Kannada, and ಕಲಿಯುತ್ತಿದ್ದೇನೆ describes learning in progress.'],['What does ಮನೆ (mane) mean?',['House / home','Road','Tree'],0,'ಮನೆ means house or home.']],
  },
  Hindi:{
  Beginner:[['मैं छात्र ___।Complete the sentence.',['हूँ','है','हो'],0,'मैं takes हूँ: मैं छात्र हूँ means I am a student.'],['What does पानी (pānī) mean?',['Water','Food','Road'],0,'पानी means water.']],
  Intermediate:[['कल मैंने एक किताब ___।Choose the past form.',['पढ़ी','पढ़ा','पढ़े'],0,'In this perfective sentence, the verb agrees with feminine किताब: पढ़ी.'],['What does भरोसा (bharosā) mean?',['Trust','Noise','Distance'],0,'भरोसा means trust or confidence.']],
  },
- Tamil:{Beginner:[['வணக்கம் means…',['Hello','Goodbye','Please'],0,'வணக்கம் (vanakkam) is a polite greeting.'],['நீர் / தண்ணீர் refers to…',['Water','Book','House'],0,'நீர் and தண்ணீர் are words for water.']]},
- Telugu:{Beginner:[['నమస్కారం means…',['A respectful greeting','Thank you','Good night'],0,'నమస్కారం (namaskāram) is a respectful greeting.'],['నీరు (nīru) means…',['Water','Road','Food'],0,'నీరు means water.']]},
+ Tamil:{Beginner:[['Which word order is common in Tamil?',['Subject–object–verb','Verb–subject–object','Object–verb–subject'],0,'Tamil commonly uses subject–object–verb order, with the main verb at the end.'],['நீர் / தண்ணீர் refers to…',['Water','Book','House'],0,'நீர் and தண்ணீர் are words for water.']]},
+ Telugu:{Beginner:[['Which word order is common in Telugu?',['Subject–object–verb','Verb–subject–object','Object–verb–subject'],0,'Telugu commonly uses subject–object–verb order, with the main verb at the end.'],['నీరు (nīru) means…',['Water','Road','Food'],0,'నీరు means water.']]},
 };
 export const questions:Question[] = Object.entries(banks).flatMap(([language,levels])=>Object.entries(levels!).flatMap(([level,pair])=>pair.map((q,i)=>({id:`${language}-${level}-${i}`,language:language as Language,level,skill:i===0?'Grammar' as const:'Vocabulary' as const,prompt:q[0],options:q[1],answer:q[2],explanation:q[3]}))));
 export function levelsFor(language:Language) { return Object.keys(banks[language]??{}); }
