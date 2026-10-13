@@ -25,6 +25,7 @@ create table public.profiles (
  created_at timestamptz not null default now(),
  check(not(target=any(known))), check(partner_id is null or partner_id<>id)
 );
+create index profiles_partner_id_idx on public.profiles(partner_id);
 create table public.learning_state (
  user_id uuid primary key references auth.users(id) on delete cascade,
  data jsonb not null default '{}'::jsonb check(jsonb_typeof(data)='object' and octet_length(data::text)<500000)
@@ -45,6 +46,7 @@ alter table public.profiles enable row level security;
 alter table public.learning_state enable row level security;
 alter table public.peer_messages enable row level security;
 alter table private.tutor_requests enable row level security;
+create policy deny_direct_quota_access on private.tutor_requests as restrictive for all to anon, authenticated using (false) with check (false);
 revoke all on public.profiles, public.learning_state, public.peer_messages from anon, authenticated;
 grant select on public.profiles to authenticated;
 grant select,insert,update,delete on public.learning_state to authenticated;

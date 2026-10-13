@@ -154,7 +154,7 @@ Deliberately outside this MVP: audio/video calls, speech recognition, payments, 
 
 ## Live chat connection work
 
-Email/password login and per-language proficiency are implemented. A live project still needs to be selected or created through the Supabase plugin; no existing unrelated project has been changed.
+The dedicated fluent.ly project (swzxdfaojssfcfldixeh, Mumbai) is configured through the Supabase plugin. The schema and Realtime publication are applied, and Security Advisor has no findings. Public variables are in ignored .env.local. Do not rerun the initial schema against this project.
 
 After a dedicated project is configured, create two real test accounts and pair them through the app. For simultaneous browser testing, use separate browser profiles, or open account A on http://127.0.0.1:3000 and account B on http://localhost:3000 so their sessions use separate browser storage.
 
@@ -173,3 +173,37 @@ After Supabase is configured and the production build is made, stop the localhos
 Use two different email addresses you control for self-service signup, and verify each email if Supabase requires it. Learner A: proficient in Hindi, targeting Kannada. Learner B: proficient in Kannada, targeting Hindi. Save both profiles, then choose the other learner under Find a partner. Both users should see the pairing and can open My loop to exchange messages. Refresh both pages to check that sessions and chat persist.
 
 Do not expose the local server to the internet by router port forwarding. Use a hosted deployment for laptops on different networks.
+
+## Public preview on different networks
+
+# fluent.ly public demo
+
+Open https://fluent-ly-hackathon.bronze-goat-4359.chatgpt.site on both laptops. They can be on different networks. No local server needs to stay running for this hosted preview.
+
+## Current status
+
+- The public Sites preview is published and connected to the dedicated fluent.ly Supabase project in Mumbai.
+- Profiles store known languages, proficiency for each language, target language, learning level and availability.
+- Database permissions restrict private learning histories and partner messages. Profiles and messages are enabled for Realtime.
+- Production build and all 10 automated tests pass. Supabase Security Advisor has no findings after the database hardening.
+- Email confirmation was still enabled when checked on October 13. The user approved disabling it for this hackathon; change Confirm email in Authentication → Sign In / Providers → Email and save.
+- No two-account live test has passed yet. This remains required before claiming the real exchange is verified.
+
+## Two-laptop walkthrough
+
+1. After disabling Confirm email, open Account and connection settings → Create account on each laptop. Use different email addresses and passwords. Choose Open live account after signing in; sample/demo mode stays separate.
+2. Learner A: knows Hindi and English; target Kannada. Learner B: knows Kannada; target Hindi. Set each known language's proficiency and save both profiles.
+3. Open Find a partner on A and choose B. Both accounts should show each other as their active partner.
+4. Open My loop on both laptops. Send a message in each direction and confirm it appears without refreshing. Refresh both pages and confirm messages persist.
+5. Use Release partner to repeat the matching demonstration. Existing conversation history is retained; it becomes available when the same learners pair again.
+
+## Demo limits
+
+The public static preview uses labeled scripted tutor responses. The main Next.js project retains the server-side Gemini integration for the later Vercel deployment. The 50/50 session timer is local to each browser. Quiz questions are original practice; official exam materials are linked separately.
+
+Email/password login does not need an email redirect. Magic links need the hosted URL configured under Supabase Authentication → URL Configuration and working email delivery; use passwords for this demo.
+
+Source is in D:\BGS_Hackathon. The public preview's source and hosting manifest are in the Codex workspace work\fluent-public directory. Do not run the initial database schema again against the configured project. Credentials are kept in ignored local environment files; no service-role key is in the frontend.
+
+For later Vercel publication, import the main Next.js repository, add the Supabase public environment variables and an optional server-only Gemini key, and verify the same two-account flow on that URL.
+
