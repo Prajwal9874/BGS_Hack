@@ -199,7 +199,7 @@ Open https://fluent-ly-hackathon.bronze-goat-4359.chatgpt.site on both laptops. 
 
 ## Demo limits
 
-The public static preview now calls a protected Supabase Gemini tutor endpoint. Until its GEMINI_API_KEY server secret is added, responses are labeled scripted fallback. The main Next.js project also retains the server-side Gemini integration for the later Vercel deployment. The 50/50 session timer is local to each browser. Quiz questions are original practice; official exam materials are linked separately.
+The public static preview now calls a protected Supabase Gemini tutor endpoint. Its GEMINI_API_KEY secret is configured; authenticated learners receive Gemini lessons, with a labeled scripted fallback on provider errors. The main Next.js project also retains the server-side Gemini integration for the later Vercel deployment. The 50/50 session timer is local to each browser. Quiz questions are original practice; official exam materials are linked separately.
 
 Email/password login does not need an email redirect. Magic links need the hosted URL configured under Supabase Authentication → URL Configuration and working email delivery; use passwords for this demo.
 
@@ -222,9 +222,9 @@ The public demo is connected to the protected fluent-tutor Supabase Edge Functio
 1. Create a key at https://aistudio.google.com/apikey using Create API key and choose/create a project.
 2. In https://supabase.com/dashboard/project/swzxdfaojssfcfldixeh/functions/secrets, add Name: GEMINI_API_KEY, Value: your key, then Save. Enter the key yourself; do not put it in Git or a NEXT_PUBLIC variable.
 3. Open https://fluent-ly-hackathon.bronze-goat-4359.chatgpt.site and sign in. Open Language tutors and send a question. A live response is labeled Gemini. Signed-out demo learners use the labeled offline coach.
-4. Tell Codex when the secret is saved so the actual hosted endpoint and browser can be verified with live generation.
+4. Setup is complete for this project. Sign in and open Language tutors to use live AI.
 
-The supplied key was saved only in the ignored local .env.local and verified with live Kannada, Hindi and Japanese generation. The Next.js AI SDK route also generated a live Hindi reply. The public Supabase endpoint still needs its own server secret; a local key does not transfer automatically to hosting.
+The supplied key was saved only in the ignored local .env.local and verified with live Kannada, Hindi and Japanese generation. The Next.js AI SDK route also generated a live Hindi reply. The public Supabase endpoint now has its server secret and passed real Gemini generation; the hosted browser displayed a live Kannada lesson.
 
 Default model: gemini-3.1-flash-lite. The first tested larger model returned intermittent high-demand errors, so Flash-Lite was selected and passed all three language checks. GEMINI_MODEL can override this default as a Supabase secret or local server environment variable.
 
@@ -236,7 +236,8 @@ For local Next.js testing, leave NEXT_PUBLIC_TUTOR_URL blank to use /api/tutor a
 
 ## Verification
 
-13 automated tests, type checking and the main production build pass. Live model generation passed for Kannada, Hindi and Japanese; live Next.js route generation passed. The deployed function rejects unsigned-in requests, validates language/history, restricts browser origins and honors account quotas. The public frontend has been published as Site version 2. Full public Gemini generation remains pending the Supabase secret.
+13 automated tests, type checking and the main production build pass. Live model generation passed for Kannada, Hindi and Japanese; live Next.js route generation passed. The deployed function rejects unsigned-in requests, validates language/history, restricts browser origins and honors account quotas. The public frontend has been published as Site version 2. Public Gemini generation is verified: the authenticated endpoint returns source=gemini, unsigned-in access is denied, and the hosted browser displays a real lesson. Switching to Japanese opens its own empty history; returning to Kannada retains the lesson.
 
 Source: src/lib/edge-tutor.ts, supabase/functions/fluent-tutor/index.js, src/lib/use-fluent.ts. The key-free plugin deployment payload is generated with node scripts/tutor-deployment.mjs. The deployed function verifies tokens itself, so gateway verify_jwt is disabled to support browser preflight and current signing keys; this does not permit unsigned-in AI calls.
+
 
