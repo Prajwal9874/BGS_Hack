@@ -104,3 +104,64 @@ test("hosted Gemini requires an authenticated account unless explicitly enabled 
     else delete process.env.ALLOW_DEMO_AI;
   }
 });
+
+test("Vercel relay keeps sign-in required and forwards only selected language history", async () => {
+  const previous = {
+    backend: process.env.TUTOR_BACKEND_URL,
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  };
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://relay.supabase.co";
+  process.env.TUTOR_BACKEND_URL =
+    "https://relay.supabase.co/functions/v1/fluent-tutor";
+  let calls = 0;
+  globalThis.fetch = async (input, init) => {
+    calls++;
+    assert.equal(String(input), process.env.TUTOR_BACKEND_URL);
+    const headers = new Headers(init?.headers);
+    assert.equal(headers.get("Authorization"), "Bearer learner-token");
+    assert.equal(headers.get("x-goog-api-key"), null);
+    assert.deepEqual(JSON.parse(String(init?.body)), {
+      language: "Hindi",
+      messages: [{ role: "user", content: "Hello" }],
+    });
+    return Response.json({
+      reply: "नमस्ते",
+      source: "gemini",
+      notice: "Gemini · Language-learning tutor",
+    });
+  };
+  try {
+    const body = {
+      language: "Hindi",
+      messages: [{ role: "user", content: "Hello" }],
+    };
+    const signedOut = await (await POST(request(body))).json();
+    assert.equal(signedOut.source, "offline");
+    assert.equal(calls, 0);
+    const signedIn = await POST(
+      new Request("https://example.test/api/tutor", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer learner-token",
+        },
+        body: JSON.stringify(body),
+      }),
+    );
+    assert.equal((await signedIn.json()).source, "gemini");
+    assert.equal(calls, 1);
+    process.env.TUTOR_BACKEND_URL = "https://untrusted.example/tutor";
+    assert.equal((await (await POST(request(body))).json()).source, "offline");
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    for (const [name, value] of [
+      ["TUTOR_BACKEND_URL", previous.backend],
+      ["NEXT_PUBLIC_SUPABASE_URL", previous.url],
+    ]) {
+      if (value) process.env[name!] = value;
+      else delete process.env[name!];
+    }
+  }
+});

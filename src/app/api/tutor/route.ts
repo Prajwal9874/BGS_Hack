@@ -42,6 +42,60 @@ export async function POST(request: Request) {
   const id = b.language as Language,
     messages = b.messages as Message[],
     fallback = fallbackReply(id, messages);
+  // Vercel can reuse the existing protected tutor without copying its provider key.
+  if (process.env.TUTOR_BACKEND_URL) {
+    const backend = process.env.TUTOR_BACKEND_URL;
+    const expected =
+      process.env.NEXT_PUBLIC_SUPABASE_URL + "/functions/v1/fluent-tutor";
+    const offline = (notice: string) =>
+      Response.json({ reply: fallback, source: "offline", notice });
+    if (backend !== expected || !backend.startsWith("https://"))
+      return offline(
+        "Scripted practice · Tutor backend is not configured correctly.",
+      );
+    const authorization = request.headers.get("authorization");
+    if (!authorization?.startsWith("Bearer "))
+      return offline("Scripted practice · Sign in to use Gemini.");
+    try {
+      const upstream = await fetch(backend, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: authorization,
+        },
+        body: JSON.stringify({
+          language: id,
+          messages: messages.map(({ role, content }) => ({ role, content })),
+        }),
+        signal: AbortSignal.timeout(25000),
+        cache: "no-store",
+      });
+      if (upstream.status === 401)
+        return Response.json(
+          { error: "Please sign in again." },
+          { status: 401 },
+        );
+      if (!upstream.ok)
+        return offline(
+          "Scripted practice · Tutor backend is temporarily unavailable.",
+        );
+      const data = await upstream.json();
+      if (
+        typeof data.reply !== "string" ||
+        !["gemini", "offline"].includes(data.source) ||
+        typeof data.notice !== "string"
+      )
+        return offline("Scripted practice · Tutor backend returned no lesson.");
+      return Response.json(
+        { reply: data.reply, source: data.source, notice: data.notice },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    } catch {
+      return offline(
+        "Scripted practice · Tutor connection is temporarily unavailable.",
+      );
+    }
+  }
   if (!process.env.GEMINI_API_KEY)
     return Response.json({
       reply: fallback,
@@ -112,4 +166,3 @@ export async function POST(request: Request) {
     });
   }
 }
-
