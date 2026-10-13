@@ -91,7 +91,7 @@ export async function POST(request: Request) {
       apiKey: process.env.GEMINI_API_KEY,
     });
     const result = await generateText({
-      model: google(process.env.GEMINI_MODEL || "gemini-3.8-flash"),
+      model: google(process.env.GEMINI_MODEL || "gemini-3.1-flash-lite"),
       instructions: tutorSystem(id),
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
       maxOutputTokens: 800,
@@ -112,3 +112,4 @@ export async function POST(request: Request) {
     });
   }
 }
+

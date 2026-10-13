@@ -20,7 +20,10 @@ const tips: Partial<Record<Language, string>> = {
   Telugu:
     "Telugu generally puts the verb at the end. నా పేరు … (Nā pēru …) means “My name is …”. Start with నమస్కారం (Namaskāram), a respectful greeting.",
 };
-export function fallbackReply(id: Language, messages: Message[]): string {
+export function fallbackReply(
+  id: Language,
+  messages: (Pick<Message, "role" | "content"> & Partial<Message>)[],
+): string {
   const l = language(id),
     text = messages.at(-1)?.content.toLowerCase() ?? "";
   if (

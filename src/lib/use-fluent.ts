@@ -16,6 +16,7 @@ import {
   type Profile,
   type Message,
 } from "./domain";
+import { fallbackReply } from "./tutor";
 import type { Session } from "@supabase/supabase-js";
 const STORAGE = "fluent.ly.demo.v1";
 function fromRow(p: Record<string, unknown>): Partner {
@@ -383,7 +384,21 @@ export function useFluent() {
       ...current.current,
       histories: { ...current.current.histories, [id]: history },
     });
-    const response = await fetch("/api/tutor", {
+    const endpoint = process.env.NEXT_PUBLIC_TUTOR_URL || "/api/tutor";
+    if (process.env.NEXT_PUBLIC_TUTOR_URL && (mode !== "live" || !session)) {
+      const reply: Message = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: fallbackReply(id, history),
+        source: "offline",
+      };
+      await updateNotes({
+        ...current.current,
+        histories: { ...current.current.histories, [id]: [...history, reply] },
+      });
+      return "Scripted practice · Sign in to use Gemini.";
+    }
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
