@@ -18,7 +18,9 @@ Ask Prajwal for the handoff password and enter it when prompted. The encrypted b
 
 Open http://127.0.0.1:3000. Sign in using the demo logins or create your own accounts. Learner A knows Hindi and English and wants Kannada; learner B knows Kannada and wants Hindi. They can match from **Find a partner** and message each other under **My loop**.
 
-Public demo: https://fluent-ly-hackathon.bronze-goat-4359.chatgpt.site
+Production website: https://fluent-ly-phi.vercel.app
+
+Push or merge changes to main to trigger Vercel automatically. The production URL updates after a successful build. Database and Supabase function changes require their own deployment.
 
 ## Shared hackathon backend
 
@@ -37,3 +39,4 @@ npm run build
 The demo has passed real two-account Auth, matching, bidirectional Realtime chat and persistence checks, plus live Gemini lessons. Rehearse on the actual presentation laptops. The countdown timer is local to each browser, and exam questions are original practice with official-material links.
 
 See `README.md` for the feature walkthrough, accountability rules and Vercel deployment steps.
+

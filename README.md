@@ -117,7 +117,7 @@ Official sample or released papers vary by publisher. They have not been importe
 
 ## Deploy to Vercel
 
-The repository is ready for Vercel's Next.js preset; it has **not been deployed**.
+Production is deployed at https://fluent-ly-phi.vercel.app through the fluent-ly project in the Personal Vercel workspace. It is connected to Prajwal9874/BGS_Hack, production branch main.
 
 1. Create a remote repository and push this local `main` branch. Git commits are local until a remote is configured.
 2. Import the repository into Vercel, using the Next.js framework preset and the default build command `npm run build`.
@@ -241,3 +241,21 @@ For local Next.js testing, leave NEXT_PUBLIC_TUTOR_URL blank to use /api/tutor a
 Source: src/lib/edge-tutor.ts, supabase/functions/fluent-tutor/index.js, src/lib/use-fluent.ts. The key-free plugin deployment payload is generated with node scripts/tutor-deployment.mjs. The deployed function verifies tokens itself, so gateway verify_jwt is disabled to support browser preflight and current signing keys; this does not permit unsigned-in AI calls.
 
 
+
+## Live Vercel deployment and automatic updates
+
+Production: https://fluent-ly-phi.vercel.app
+
+Vercel project: https://vercel.com/personal-d479/fluent-ly
+
+GitHub: https://github.com/Prajwal9874/BGS_Hack — production branch main.
+
+Push or merge app changes into main. Vercel's GitHub integration automatically starts a deployment and updates the production URL when its build succeeds. Changes saved only on a laptop are not deployed. Other branches receive preview deployments. A failed build leaves the last successful production version live.
+
+Vercel has NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY for the configured fluent.ly project. Its server-only TUTOR_BACKEND_URL points to the existing protected fluent-tutor Supabase function. NEXT_PUBLIC_TUTOR_URL is left unset on Vercel, so the browser calls /api/tutor on the same website; that server route relays authenticated requests. No Gemini provider key needs to be copied into Vercel for this setup.
+
+Database schema changes and Supabase Edge Function changes must be applied/deployed separately; a Git push does not migrate the database or redeploy the external tutor function. Supabase profiles, matching, chat and histories are shared across the Sites and Vercel demos. The Sites preview is a separate deployment and does not automatically follow GitHub pushes.
+
+Production verification passed: public HTTP 200, real account login, saved profile read, signed-out scripted tutor, and authenticated live Gemini response. All 14 automated tests, type checking and the production build pass.
+
+For email/password login no redirect URL is needed. Magic-link login requires adding the production URL to Supabase Auth URL configuration and working email delivery.
