@@ -165,3 +165,11 @@ node --env-file=.env.local --env-file=.env.test-accounts scripts/verify-live-cha
 ```
 
 The verifier signs in two distinct Auth users, confirms reciprocal pairing and saved proficiency, sends a message in both directions, waits for both Realtime events, rereads both messages from Postgres, and checks that an unauthenticated client cannot read the chat. It never prints passwords or tokens. It does send two labeled test messages into the paired conversation.
+
+## Two-laptop demo on the same Wi-Fi
+
+After Supabase is configured and the production build is made, stop the localhost preview and run `npm.cmd run start:lan`. Open `http://YOUR_HOST_LAPTOP_WIFI_IP:3000` on both laptops. Each laptop signs in to a different learner account. Both browsers connect directly to the same hosted Supabase database and Realtime service. The host laptop must stay on and running; localhost on the second laptop points to that laptop, not the host. A local network may isolate clients, and Windows Firewall may require allowing Node.js on your private network.
+
+Use two different email addresses you control for self-service signup, and verify each email if Supabase requires it. Learner A: proficient in Hindi, targeting Kannada. Learner B: proficient in Kannada, targeting Hindi. Save both profiles, then choose the other learner under Find a partner. Both users should see the pairing and can open My loop to exchange messages. Refresh both pages to check that sessions and chat persist.
+
+Do not expose the local server to the internet by router port forwarding. Use a hosted deployment for laptops on different networks.

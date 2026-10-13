@@ -113,6 +113,8 @@ export function useFluent() {
     ]);
     if (pr.error) throw new Error(pr.error.message);
     if (lr.error) throw new Error(lr.error.message);
+    if (currentMode.current !== "live" || requestId !== liveRequest.current)
+      return;
     const rows = pr.data ?? [],
       own = rows.find((p) => p.id === session.user.id);
     setPartners(

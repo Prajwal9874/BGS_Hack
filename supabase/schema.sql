@@ -94,7 +94,7 @@ declare allowed text[]=array['Kannada','Hindi','Japanese','German','French','Ita
 begin
  if auth.uid() is null then raise exception 'Sign in first'; end if;
  if p_name is null or length(trim(p_name)) not between 1 and 60 or p_known is null or cardinality(p_known) not between 1 and 13 or not(p_known<@allowed) or p_target is null or not(p_target=any(allowed)) or p_target=any(p_known) or p_bio is null or length(p_bio)>300 then raise exception 'Invalid learning profile'; end if;
- if p_proficiency is null or jsonb_typeof(p_proficiency)<>'object' or exists(select 1 from jsonb_each_text(p_proficiency) e where not(e.key=any(p_known)) or e.value not in ('Native','Fluent','Conversational')) then raise exception 'Invalid language proficiency'; end if;
+ if p_proficiency is null or jsonb_typeof(p_proficiency)<>'object' or exists(select 1 from jsonb_each_text(p_proficiency) e where not(e.key=any(p_known)) or e.value is null or e.value not in ('Native','Fluent','Conversational')) then raise exception 'Invalid language proficiency'; end if;
  perform pg_advisory_xact_lock(810101);
  select * into old from public.profiles where id=auth.uid() for update;
  if old.id is not null and (old.known<>p_known or old.target<>p_target) then perform private.release_partner(); end if;
