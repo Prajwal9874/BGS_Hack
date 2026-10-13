@@ -186,12 +186,12 @@ Open https://fluent-ly-hackathon.bronze-goat-4359.chatgpt.site on both laptops. 
 - Profiles store known languages, proficiency for each language, target language, learning level and availability.
 - Database permissions restrict private learning histories and partner messages. Profiles and messages are enabled for Realtime.
 - Production build and all 10 automated tests pass. Supabase Security Advisor has no findings after the database hardening.
-- Email confirmation was still enabled when checked on October 13. The user approved disabling it for this hackathon; change Confirm email in Authentication → Sign In / Providers → Email and save.
-- No two-account live test has passed yet. This remains required before claiming the real exchange is verified.
+- Email confirmation is disabled for the approved hackathon demo. The live Auth settings confirm automatic email signup.
+- Two normal-signup accounts passed live login, saved proficiency, reciprocal matching, bidirectional Realtime delivery, persisted messages and unsigned-in chat denial on October 13. Hosted browser login and sending a message also passed; a partner reply appeared without refreshing. Two physical laptops have not been tested by the agent; use the walkthrough below before presenting.
 
 ## Two-laptop walkthrough
 
-1. After disabling Confirm email, open Account and connection settings → Create account on each laptop. Use different email addresses and passwords. Choose Open live account after signing in; sample/demo mode stays separate.
+1. Email confirmation is already disabled. Open Account and connection settings → Create account on each laptop. Use different email addresses and passwords. Choose Open live account after signing in; sample/demo mode stays separate.
 2. Learner A: knows Hindi and English; target Kannada. Learner B: knows Kannada; target Hindi. Set each known language's proficiency and save both profiles.
 3. Open Find a partner on A and choose B. Both accounts should show each other as their active partner.
 4. Open My loop on both laptops. Send a message in each direction and confirm it appears without refreshing. Refresh both pages and confirm messages persist.
@@ -206,4 +206,7 @@ Email/password login does not need an email redirect. Magic links need the hoste
 Source is in D:\BGS_Hackathon. The public preview's source and hosting manifest are in the Codex workspace work\fluent-public directory. Do not run the initial database schema again against the configured project. Credentials are kept in ignored local environment files; no service-role key is in the frontend.
 
 For later Vercel publication, import the main Next.js repository, add the Supabase public environment variables and an optional server-only Gemini key, and verify the same two-account flow on that URL.
+
+
+Two generated demo accounts, Aarav and Kavya, are ready. Their passwords are in a private local test-logins guide, not Git or the public site. After verification, the pair was released so Find a partner can demonstrate matching again. To rerun the live verifier, pair them first. The first live-event check missed updates; subsequent independent runs passed. Rehearse on the actual laptops before judging.
 

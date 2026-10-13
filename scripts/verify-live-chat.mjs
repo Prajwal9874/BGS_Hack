@@ -163,4 +163,9 @@ try {
 } finally {
   await Promise.all(channels.map(({ c, channel }) => c.removeChannel(channel)));
   await Promise.all(clients.map((c) => c.auth.signOut({ scope: "local" })));
+  clients.forEach((c) => c.realtime.disconnect());
 }
+
+
+// Standalone verifier: all awaited checks and cleanup have completed.
+process.exit(0);
